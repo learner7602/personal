@@ -3,273 +3,445 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice-to-Text Document Creator</title>
-    <!-- Load Tailwind CSS -->
+    <title>Web Word Processor</title>
+    <!-- Tailwind CSS for styling, loaded via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Configure Tailwind for custom colors and Inter font -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                    colors: {
-                        'primary': '#4f46e5',
-                        'secondary': '#8b5cf6',
-                    }
-                }
-            }
-        }
-    </script>
+    <!-- Custom Google Fonts: Inter and Noto Sans Bengali -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Custom CSS styles embedded within the HTML file -->
     <style>
-        /* Custom styles for the microphone button animation */
-        .mic-button-active {
-            animation: pulse-red 1.5s infinite;
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        @keyframes pulse-red {
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        #editor {
+            outline: none;
+            padding: 2.5rem;
+            line-height: 1.75;
+            min-height: 11in;
+            width: 8.5in;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            transition: box-shadow 0.3s ease;
+        }
+        #editor:focus {
+            box-shadow: 0 0 15px rgba(43, 87, 154, 0.4);
+        }
+        #editor table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        #editor td, #editor th {
+            border: 1px solid #ccc;
+            padding: 8px;
+        }
+
+        .theme-bg { background-color: #2b579a; }
+        .theme-text { color: #2b579a; }
+
+        .ribbon-btn {
+            background-color: transparent; border: 1px solid transparent; border-radius: 4px;
+            padding: 4px; margin: 1px; transition: background-color 0.2s ease, border-color 0.2s ease;
+            display: inline-flex; align-items: center; justify-content: center; color: white;
+        }
+        .ribbon-btn:hover { background-color: #4c72b0; }
+        .ribbon-btn.active { background-color: #1e3c6a; border-color: #6fa6ff; }
+        .ribbon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .ribbon-btn svg { width: 20px; height: 20px; }
+        
+        .ribbon-select, .ribbon-input {
+            border: 1px solid #7a9dcf; border-radius: 4px; padding: 2px 4px; font-size: 14px;
+            background-color: #f7fafc; color: #1a202c;
+        }
+        .ribbon-select:hover, .ribbon-input:hover { border-color: #ffffff; }
+
+        /* Dropdown for Table creation */
+        .dropdown { position: relative; display: inline-block; }
+        .dropdown-content { display: none; position: absolute; background-color: #f9f9f9;
+            min-width: 160px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); z-index: 10;
+        }
+        .dropdown:hover .dropdown-content { display: block; }
+        #table-creator { display: grid; grid-template-columns: repeat(10, 20px); gap: 2px; padding: 5px; }
+        .table-cell-selector { width: 20px; height: 20px; background-color: #e0e0e0; border: 1px solid #fff; }
+        .table-cell-selector.selected { background-color: #5b9bd5; border: 1px solid #1e3c6a; }
+
+        /* Contextual Table Tools */
+        #table-tools {
+            display: none; background-color: #1e3c6a; padding: 4px; border-radius: 6px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 20;
+        }
+         #table-tools .ribbon-btn:hover { background-color: #4c72b0; }
+
+        /* Speech Recognition Button animation */
+        .listening {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { background-color: #ef4444; }
+            50% { background-color: #f87171; }
+            100% { background-color: #ef4444; }
+        }
+
+        @media print {
+            body { background-color: #fff !important; }
+            #controls, #status-bar, #table-tools { display: none !important; }
+            #editor-container { padding: 0 !important; background-color: #fff !important; }
+            #editor { width: 100% !important; min-height: auto !important; box-shadow: none !important;
+                border: none !important; padding: 0 !important; margin: 0 !important;
+            }
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4 font-sans">
+<body class="bg-gray-50 flex flex-col h-screen">
 
-    <div class="w-full max-w-3xl bg-white p-6 md:p-10 rounded-xl shadow-2xl border border-gray-200">
-        <h1 class="text-3xl font-extrabold text-primary text-center mb-2">Voice Document Writer</h1>
-        <p class="text-gray-500 text-center mb-6">Start speaking to draft your text in real-time.</p>
-
-        <!-- Language Selector -->
-        <div class="flex justify-center gap-4 mb-6">
-            <button id="lang-en" data-lang="en-US" 
-                    class="lang-button px-4 py-2 text-sm font-semibold rounded-full transition duration-150">
-                English
-            </button>
-            <button id="lang-bn" data-lang="bn-BD" 
-                    class="lang-button px-4 py-2 text-sm font-semibold rounded-full transition duration-150">
-                বাংলা (Bengali)
-            </button>
-        </div>
-
-        <!-- Status Message -->
-        <div id="status" class="text-center mb-6 text-sm font-medium h-6 text-gray-700">
-            Click the microphone to begin.
-        </div>
-
-        <!-- Text Output Area -->
-        <textarea id="output-text" rows="10" placeholder="Your transcribed text will appear here..."
-                  class="w-full p-4 border-2 border-primary rounded-lg shadow-inner focus:ring-secondary focus:border-secondary transition duration-150 ease-in-out resize-none text-gray-800"></textarea>
-
-        <!-- Controls -->
-        <div class="flex flex-col items-center justify-center gap-4 mt-6">
+    <!-- Top Ribbon Controls -->
+    <header id="controls" class="theme-bg shadow-md px-4 py-2 flex-shrink-0 text-white">
+        <div class="flex flex-wrap items-center gap-x-4">
             
-            <!-- Microphone Button -->
-            <button id="mic-button"
-                    class="w-20 h-20 flex items-center justify-center rounded-full bg-primary text-white shadow-lg transition duration-300 ease-in-out hover:bg-secondary focus:outline-none focus:ring-4 focus:ring-primary/50">
-                <!-- SVG Microphone Icon -->
-                <svg id="mic-icon" xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 transition duration-150" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4z" clip-rule="evenodd" />
-                    <path fill-rule="evenodd" d="M6.25 10.155a.75.75 0 01.75.75v1.25a4 4 0 008 0v-1.25a.75.75 0 011.5 0v1.25a5.5 5.5 0 01-11 0v-1.25a.75.75 0 01.75-.75z" clip-rule="evenodd" />
-                    <path d="M11 14.75a.75.75 0 01.75.75v1.25H7.5v-1.25a.75.75 0 01.75-.75h3.5z" />
-                </svg>
-            </button>
-            <span id="mic-text" class="text-lg font-semibold text-primary">Start Recording</span>
+            <!-- Font Style -->
+            <div class="flex items-center space-x-2 border-r border-blue-400 pr-4">
+                 <select id="font-family" class="ribbon-select w-40" title="Font Family">
+                    <option>Arial</option><option>Verdana</option><option>Times New Roman</option><option>Georgia</option>
+                    <option>Courier New</option><option>Inter</option><option>Noto Sans Bengali</option>
+                </select>
+                 <select id="font-size" class="ribbon-select w-16" title="Font Size">
+                    <option>10</option><option>12</option><option>14</option><option selected>16</option>
+                    <option>18</option><option>24</option><option>32</option>
+                </select>
+            </div>
+            
+            <!-- Text Formatting -->
+            <div class="flex items-center space-x-1 border-r border-blue-400 pr-4">
+                <button class="ribbon-btn" data-command="bold" title="Bold"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.5,15.5H10V12.5H13.5A1.5,1.5 0 0,1 15,14A1.5,1.5 0 0,1 13.5,15.5M10,6.5H13A1.5,1.5 0 0,1 14.5,8A1.5,1.5 0 0,1 13,9.5H10V6.5M15.6,10.79C16.57,10.11 17.25,9 17.25,8C17.25,5.74 15.5,4 13.25,4H7.5V18H14.04C16.14,18 17.75,16.3 17.75,14.21C17.75,12.69 16.89,11.39 15.6,10.79Z"></path></svg></button>
+                <button class="ribbon-btn" data-command="italic" title="Italic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10,4V7H12.21L8.79,15H6V18H14V15H11.79L15.21,7H18V4H10Z"></path></svg></button>
+                <button class="ribbon-btn" data-command="underline" title="Underline"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5,21H19V19H5V21M12,17A6,6 0 0,0 18,11V3H15.5V11A3.5,3.5 0 0,1 12,14.5A3.5,3.5 0 0,1 8.5,11V3H6V11A6,6 0 0,0 12,17Z"></path></svg></button>
+                <button class="ribbon-btn" data-command="strikethrough" title="Strikethrough"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14.25,12L12,9.75L9.75,12L12,14.25M10,20H14V17H10M3,4V6H5V12C5,14.76 7.24,17 10,17H11V20H13V17H14C16.76,17 19,14.76 19,12V6H21V4M17,12C17,13.65 15.65,15 14,15H10C8.35,15 7,13.65 7,12V6H17V12Z" /></svg></button>
+            </div>
+            
+            <!-- Color -->
+            <div class="flex items-center space-x-2 border-r border-blue-400 pr-4">
+                 <div class="relative flex items-center p-1 rounded" title="Text Color"><span class="font-bold text-xl mr-1">A</span><input type="color" id="fore-color" class="ribbon-input h-6 w-8 p-0 cursor-pointer" value="#000000"></div>
+                <div class="relative flex items-center p-1 rounded" title="Highlight Color"><svg class="w-6 h-6 mr-1" viewBox="0 0 24 24" fill="currentColor"><path d="M17.2,20.5L15.8,22L5,11.2V22H3V2H13.2L17.2,6V20.5M16,7L12.5,3.5V7H16Z" /></svg><input type="color" id="back-color" class="ribbon-input h-6 w-8 p-0 cursor-pointer" value="#ffffff"></div>
+            </div>
 
-            <div class="w-full flex justify-center mt-4">
-                <!-- Download Button -->
-                <button id="download-button" disabled
-                        class="px-6 py-3 bg-green-500 text-white font-bold rounded-lg shadow-md hover:bg-green-600 disabled:opacity-50 transition duration-150 ease-in-out">
-                    Download Document (.txt)
-                </button>
+            <!-- Paragraph -->
+            <div class="flex items-center space-x-1 border-r border-blue-400 pr-4">
+                <button class="ribbon-btn" data-command="justifyLeft" title="Align Left"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3,4H21V6H3V4M3,9H21V11H3V9M3,14H21V16H3V14M3,19H15V21H3V19Z" /></svg></button>
+                <button class="ribbon-btn" data-command="justifyCenter" title="Align Center"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3,4H21V6H3V4M3,9H21V11H3V9M9,14H15V16H9V14M3,19H21V21H3V19Z" /></svg></button>
+                <button class="ribbon-btn" data-command="justifyRight" title="Align Right"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3,4H21V6H3V4M3,9H21V11H3V9M9,14H21V16H9V14M3,19H21V21H3V19Z" /></svg></button>
+                <button class="ribbon-btn" data-command="insertOrderedList" title="Numbered List"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2,17H4.5V17.5H3V18.5H4.5V19H2V20H5V16H2M3,8H4V4H2V5H3M7,5V7H21V5M7,19V21H21V19M7,12V14H21V12M2.5,14H4.5L2,11.5V10H5V11.5H3L5,14V15H2V14Z" /></svg></button>
+                <button class="ribbon-btn" data-command="insertUnorderedList" title="Bulleted List"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7,5V7H21V5M7,19V21H21V19M7,12V14H21V12M4,4.5A1.5,1.5 0 0,1 5.5,6A1.5,1.5 0 0,1 4,7.5A1.5,1.5 0 0,1 2.5,6A1.5,1.5 0 0,1 4,4.5M4,18.5A1.5,1.5 0 0,1 5.5,20A1.5,1.5 0 0,1 4,21.5A1.5,1.5 0 0,1 2.5,20A1.5,1.5 0 0,1 4,18.5M4,11.5A1.5,1.5 0 0,1 5.5,13A1.5,1.5 0 0,1 4,14.5A1.5,1.5 0 0,1 2.5,13A1.5,1.5 0 0,1 4,11.5Z" /></svg></button>
+            </div>
+
+            <!-- Insert -->
+            <div class="flex items-center space-x-1 border-r border-blue-400 pr-4">
+                 <button class="ribbon-btn" id="insert-link" title="Insert Link"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.9,12C3.9,10.29 5.29,8.9 7,8.9H11V7H7A5,5 0 0,0 2,12A5,5 0 0,0 7,17H11V15.1H7C5.29,15.1 3.9,13.71 3.9,12M8,13H16V11H8V13M17,7H13V8.9H17C18.71,8.9 20.1,10.29 20.1,12C20.1,13.71 18.71,15.1 17,15.1H13V17H17A5,5 0 0,0 22,12A5,5 0 0,0 17,7Z" /></svg></button>
+                <button class="ribbon-btn" id="insert-image" title="Insert Image"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19,19H5V5H19M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M13.96,12.29L11.21,15.83L9.25,13.47L6.5,17H17.5L13.96,12.29Z" /></svg></button>
+                <div class="dropdown">
+                    <button class="ribbon-btn" title="Insert Table"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5,4H19A2,2 0 0,1 21,6V18A2,2 0 0,1 19,20H5A2,2 0 0,1 3,18V6A2,2 0 0,1 5,4M5,8V12H11V8H5M13,8V12H19V8H13M5,14V18H11V14H5M13,14V18H19V14H13Z" /></svg></button>
+                    <div class="dropdown-content"><div id="table-creator-info" class="text-center text-black text-sm p-1">Insert Table</div><div id="table-creator"></div></div>
+                </div>
+            </div>
+
+            <!-- Voice -->
+            <div class="flex items-center space-x-2 border-r border-blue-400 pr-4">
+                <button class="ribbon-btn" id="speech-btn" title="Start Dictation"><svg id="speech-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z" /></svg></button>
+                <select id="speech-lang" class="ribbon-select w-28" title="Language">
+                    <option value="en-US">English</option>
+                    <option value="bn-IN">Bengali</option>
+                </select>
+            </div>
+            
+            <!-- File -->
+            <div class="flex items-center space-x-1">
+                 <button class="ribbon-btn" id="download-btn" title="Save Document"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17,3H5C3.89,3 3,3.9 3,5V19C3,20.1 3.9,21 5,21H19C20.1,21 21,20.1 21,19V7L17,3M19,19H5V5H16.17L19,7.83V19M12,12C10.34,12 9,13.34 9,15C9,16.66 10.34,18 12,18C13.66,18 15,16.66 15,15C15,13.34 13.66,12 12,12M6,6H15V10H6V6Z" /></svg></button>
+                 <button class="ribbon-btn" id="print-btn" title="Print Document"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19,8H5C3.34,8 2,9.34 2,11V17H6V21H18V17H22V11C22,9.34 20.66,8 19,8M16,19H8V14H16V19M19,12C18.45,12 18,11.55 18,11C18,10.45 18.45,10 19,10C19.55,10 20,10.45 20,11C20,11.55 19.55,12 19,12M18,3H6V7H18V3Z" /></svg></button>
             </div>
         </div>
-
-        <!-- Compatibility Warning -->
-        <div id="compatibility-warning" class="mt-8 text-center p-3 bg-yellow-100 border border-yellow-300 rounded-lg hidden">
-            <p class="text-sm text-yellow-800 font-medium">
-                ⚠️ Browser Warning: Speech recognition is not supported or requires a secure context (HTTPS/localhost).
-            </p>
+        <!-- Contextual Table Tools -->
+        <div id="table-tools" class="flex items-center space-x-1 mt-2">
+            <span class="font-bold text-sm mr-2">Table Tools:</span>
+            <button class="ribbon-btn" id="table-add-row-above" title="Add Row Above"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 14H2V16H22V14M22 8H2V13H22V8M18 4H6V7H18V4Z" /></svg></button>
+            <button class="ribbon-btn" id="table-add-row-below" title="Add Row Below"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 10H2V12H22V10M22 4H2V9H22V4M18 16H6V19H18V16Z" /></svg></button>
+            <button class="ribbon-btn" id="table-add-col-left" title="Add Column Left"><svg viewBox="0 0 24 24" fill="currentColor" style="transform: rotate(90deg);"><path d="M22 14H2V16H22V14M22 8H2V13H22V8M18 4H6V7H18V4Z" /></svg></button>
+            <button class="ribbon-btn" id="table-add-col-right" title="Add Column Right"><svg viewBox="0 0 24 24" fill="currentColor" style="transform: rotate(90deg);"><path d="M22 10H2V12H22V10M22 4H2V9H22V4M18 16H6V19H18V16Z" /></svg></button>
+            <button class="ribbon-btn" id="table-delete-row" title="Delete Row"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 10H2V12H22V10M22 4H2V9H22V4M18 16H6V19H18V16Z" /></svg></button>
+            <button class="ribbon-btn" id="table-delete-col" title="Delete Column"><svg viewBox="0 0 24 24" fill="currentColor" style="transform: rotate(90deg);"><path d="M22 10H2V12H22V10M22 4H2V9H22V4M18 16H6V19H18V16Z" /></svg></button>
+            <button class="ribbon-btn" id="table-delete-table" title="Delete Table"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19,4H5A2,2 0 0,0 3,6V18A2,2 0 0,0 5,20H19A2,2 0 0,0 21,18V6A2,2 0 0,0 19,4M11,17H9V12H11V17M15,17H13V12H15V17M19,8H5V6H19V8Z" /></svg></button>
         </div>
-    </div>
+    </header>
 
+    <!-- Main Content Area -->
+    <main id="editor-container" class="flex-grow p-8 overflow-y-auto bg-gray-200">
+        <div id="editor" contenteditable="true" class="bg-white mx-auto">
+            <h1>Welcome to Your Web Document</h1>
+            <p>This is a fully editable document, much like Microsoft Word, but running entirely in your browser. You can use the controls in the ribbon above to format your text.</p>
+            <p><b>New Features Added:</b> You can now insert tables and use your voice to type in English or <span style="font-family: 'Noto Sans Bengali', sans-serif;">বাংলা</span>!</p>
+            <ul><li>Create bulleted lists.</li><li>Or numbered lists.</li></ul>
+            <p>Happy writing!</p>
+        </div>
+    </main>
+    
+    <!-- Status Bar -->
+    <footer id="status-bar" class="theme-bg flex-shrink-0 border-t border-blue-400 text-sm px-4 py-1 flex justify-between items-center text-white">
+        <div><span id="word-count">Word Count: 0</span></div><div>Page 1 of 1</div>
+    </footer>
+
+    <!-- All JavaScript logic is embedded here -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const micButton = document.getElementById('mic-button');
-            const micText = document.getElementById('mic-text');
-            const outputText = document.getElementById('output-text');
-            const statusDiv = document.getElementById('status');
-            const downloadButton = document.getElementById('download-button');
-            const warningDiv = document.getElementById('compatibility-warning');
-            const langEnButton = document.getElementById('lang-en');
-            const langBnButton = document.getElementById('lang-bn');
-            const languageButtons = document.querySelectorAll('.lang-button');
+            const editor = document.getElementById('editor');
+            
+            let savedRange = null;
 
-            const ACTIVE_LANG_CLASSES = ['text-white', 'bg-primary', 'shadow-md'];
-            const INACTIVE_LANG_CLASSES = ['text-gray-600', 'bg-gray-200', 'hover:bg-primary/20', 'hover:text-primary'];
-
-            let recognition = null;
-            let isRecognizing = false;
-            let finalTranscript = '';
-
-            // Check for Speech Recognition API compatibility
-            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                warningDiv.classList.remove('hidden');
-                micButton.disabled = true;
-                micText.textContent = 'Not Supported';
-                return;
-            }
-
-            // Initialize Speech Recognition
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new SpeechRecognition();
-            recognition.continuous = true; // Keep listening even if pauses occur
-            recognition.interimResults = true; // Show results as they are being recognized
-            // recognition.lang will be set by the updateActiveLanguage function
-
-            // --- Language Logic ---
-
-            /**
-             * Updates the active language setting for the recognition engine and updates the button styling.
-             * @param {string} newLang - The language code (e.g., 'en-US', 'bn-BD').
-             */
-            function updateActiveLanguage(newLang) {
-                if (isRecognizing) {
-                    // Prevent changing language mid-recording
-                    statusDiv.textContent = 'Please stop recording before changing the language.';
-                    return;
+            const saveSelection = () => {
+                const selection = window.getSelection();
+                if (selection.getRangeAt && selection.rangeCount) {
+                    savedRange = selection.getRangeAt(0);
                 }
-                
-                languageButtons.forEach(btn => {
-                    btn.classList.remove(...ACTIVE_LANG_CLASSES);
-                    btn.classList.add(...INACTIVE_LANG_CLASSES);
+            };
+
+            const restoreSelection = () => {
+                if (savedRange) {
+                    editor.focus();
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(savedRange);
+                }
+            };
+
+            // --- Core Command Execution ---
+            const execCmd = (command, value = null) => {
+                document.execCommand(command, false, value);
+                editor.focus();
+                updateToolbarStates();
+            };
+
+            // --- Toolbar & Controls Setup ---
+            document.querySelectorAll('.ribbon-btn[data-command]').forEach(button => {
+                button.addEventListener('click', () => execCmd(button.dataset.command));
+            });
+            document.getElementById('font-family').addEventListener('change', (e) => execCmd('fontName', e.target.value));
+            document.getElementById('font-size').addEventListener('change', (e) => {
+                const sizeMap = { '10':'1', '12':'2', '14':'3', '16':'4', '18':'5', '24':'6', '32':'7'};
+                execCmd('fontSize', sizeMap[e.target.value]);
+            });
+            document.getElementById('fore-color').addEventListener('input', (e) => execCmd('foreColor', e.target.value));
+            document.getElementById('back-color').addEventListener('input', (e) => execCmd('hiliteColor', e.target.value));
+            document.getElementById('insert-link').addEventListener('click', () => {
+                saveSelection();
+                const url = prompt("Enter link URL:", "https://");
+                restoreSelection();
+                if (url) execCmd('createLink', url);
+            });
+            document.getElementById('insert-image').addEventListener('click', () => {
+                saveSelection();
+                const url = prompt("Enter image URL:");
+                restoreSelection();
+                if (url) execCmd('insertImage', url);
+            });
+            document.getElementById('print-btn').addEventListener('click', () => window.print());
+            document.getElementById('download-btn').addEventListener('click', () => {
+                const title = document.querySelector('#editor h1')?.innerText || 'document';
+                const blob = new Blob([editor.innerHTML], { type: 'text/html' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `${title.trim().replace(/\s+/g, '_')}.html`;
+                a.click();
+            });
+
+            // --- Word Count ---
+            const updateWordCount = () => {
+                const text = editor.innerText || editor.textContent;
+                const words = text.trim().split(/\s+/).filter(word => word.length > 0);
+                document.getElementById('word-count').textContent = `Word Count: ${words.length}`;
+            };
+
+            // --- Toolbar State Updates ---
+            const updateToolbarStates = () => {
+                document.querySelectorAll('.ribbon-btn[data-command]').forEach(button => {
+                    button.classList.toggle('active', document.queryCommandState(button.dataset.command));
                 });
+                // Additional state updates for selects can be added here
+            };
 
-                const selectedButton = document.querySelector(`[data-lang="${newLang}"]`);
-                if (selectedButton) {
-                    selectedButton.classList.remove(...INACTIVE_LANG_CLASSES);
-                    selectedButton.classList.add(...ACTIVE_LANG_CLASSES);
-                    
-                    recognition.lang = newLang;
-                    statusDiv.textContent = `Language set to ${selectedButton.textContent}. Click the microphone to begin.`;
-                }
+            // --- Table Functionality ---
+            const tableCreator = document.getElementById('table-creator');
+            const tableTools = document.getElementById('table-tools');
+            const tableDropdown = document.querySelector('.dropdown');
+            let currentCell = null;
+
+            tableDropdown.addEventListener('mousedown', saveSelection);
+
+            for (let i = 0; i < 100; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'table-cell-selector';
+                cell.dataset.row = Math.floor(i / 10) + 1;
+                cell.dataset.col = (i % 10) + 1;
+                tableCreator.appendChild(cell);
             }
 
-            // Set initial language to English on load
-            updateActiveLanguage('en-US');
-
-            // Add click listeners to the language buttons
-            langEnButton.addEventListener('click', () => updateActiveLanguage(langEnButton.dataset.lang));
-            langBnButton.addEventListener('click', () => updateActiveLanguage(langBnButton.dataset.lang));
-
-
-            // --- Recognition Event Handlers ---
-
-            recognition.onstart = () => {
-                isRecognizing = true;
-                micButton.classList.add('mic-button-active', 'bg-red-500');
-                micButton.classList.remove('bg-primary', 'hover:bg-secondary');
-                micText.textContent = 'Listening... Speak now.';
-                statusDiv.textContent = `Listening in ${recognition.lang}. Speak clearly into your microphone.`;
-            };
-
-            recognition.onend = () => {
-                isRecognizing = false;
-                micButton.classList.remove('mic-button-active', 'bg-red-500');
-                micButton.classList.add('bg-primary', 'hover:bg-secondary');
-                micText.textContent = 'Start Recording';
-                statusDiv.textContent = 'Recognition stopped.';
-                
-                // Ensure the final text is clean when saving/stopping
-                finalTranscript = outputText.value.trim() + ' ';
-                
-                // Enable download button if there is text
-                downloadButton.disabled = finalTranscript.trim() === '';
-            };
-
-            recognition.onerror = (event) => {
-                isRecognizing = false;
-                console.error('Speech Recognition Error:', event.error);
-                statusDiv.textContent = `Error: ${event.error}. Click to retry.`;
-                micButton.classList.remove('mic-button-active', 'bg-red-500');
-                micButton.classList.add('bg-primary', 'hover:bg-secondary');
-                micText.textContent = 'Start Recording';
-            };
-
-            recognition.onresult = (event) => {
-                let currentInterim = '';
-                
-                // Loop through results from the current event's index up
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    const transcript = event.results[i][0].transcript;
-                    
-                    if (event.results[i].isFinal) {
-                        // If it's final, add it to the permanent storage (with a space separator)
-                        // This replaces the old logic that added '.\n'
-                        finalTranscript += transcript + ' '; 
-                    } else {
-                        // If it's interim, store it temporarily (this usually catches the latest result)
-                        currentInterim = transcript;
-                    }
-                }
-
-                // Update the text area with final text plus the current interim result.
-                let displayText = finalTranscript.trim();
-                
-                if (currentInterim.length > 0) {
-                    // Add space only if permanent text exists and interim text is coming
-                    if (displayText.length > 0) {
-                         displayText += ' ';
-                    }
-                    displayText += currentInterim;
-                }
-                
-                outputText.value = displayText;
-            };
-
-            // --- Button Handlers ---
-
-            micButton.addEventListener('click', () => {
-                if (isRecognizing) {
-                    recognition.stop();
-                } else {
-                    // Start with the existing text content, ensuring it ends with a space for new dictation
-                    finalTranscript = outputText.value.trim() + ' '; 
-                    recognition.start();
+            tableCreator.addEventListener('mouseover', e => {
+                if (e.target.classList.contains('table-cell-selector')) {
+                    const rows = e.target.dataset.row;
+                    const cols = e.target.dataset.col;
+                    document.getElementById('table-creator-info').textContent = `${rows} x ${cols}`;
+                    document.querySelectorAll('.table-cell-selector').forEach(cell => {
+                        cell.classList.toggle('selected', cell.dataset.row <= rows && cell.dataset.col <= cols);
+                    });
                 }
             });
 
-            downloadButton.addEventListener('click', () => {
-                const textToSave = outputText.value;
-
-                if (!textToSave.trim()) {
-                    statusDiv.textContent = 'Nothing to download. Please record some text first.';
-                    return;
+            tableCreator.addEventListener('click', e => {
+                if (e.target.classList.contains('table-cell-selector')) {
+                    const rows = e.target.dataset.row;
+                    const cols = e.target.dataset.col;
+                    let tableHTML = '<table><tbody>';
+                    for(let r=0; r<rows; r++) {
+                        tableHTML += '<tr>';
+                        for(let c=0; c<cols; c++) {
+                            tableHTML += '<td><br></td>';
+                        }
+                        tableHTML += '</tr>';
+                    }
+                    tableHTML += '</tbody></table>';
+                    restoreSelection();
+                    execCmd('insertHTML', tableHTML);
+                    document.querySelector('.dropdown-content').style.display = 'none';
+                    setTimeout(() => document.querySelector('.dropdown-content').style.display = '', 100);
                 }
-
-                // Create a Blob containing the text data
-                const blob = new Blob([textToSave], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-
-                // Create a temporary link element to trigger the download
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `voice_document_${new Date().toISOString().slice(0, 10)}.txt`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                statusDiv.textContent = 'File downloaded successfully as .txt';
             });
             
-            // Check if text is present to enable download button on load/changes
-            outputText.addEventListener('input', () => {
-                downloadButton.disabled = outputText.value.trim() === '';
+            const getTableElements = () => {
+                if (!currentCell) return null;
+                const row = currentCell.closest('tr');
+                const table = currentCell.closest('table');
+                if (!row || !table) return null;
+                return { cell: currentCell, row, table, rowIndex: row.rowIndex, cellIndex: currentCell.cellIndex };
+            };
+
+            document.getElementById('table-add-row-above').addEventListener('click', () => {
+                const els = getTableElements();
+                if(!els) return;
+                const newRow = els.table.insertRow(els.rowIndex);
+                for(let i=0; i<els.row.cells.length; i++) newRow.insertCell(i).innerHTML = "<br>";
+            });
+             document.getElementById('table-add-row-below').addEventListener('click', () => {
+                const els = getTableElements();
+                if(!els) return;
+                const newRow = els.table.insertRow(els.rowIndex + 1);
+                for(let i=0; i<els.row.cells.length; i++) newRow.insertCell(i).innerHTML = "<br>";
+            });
+            document.getElementById('table-add-col-left').addEventListener('click', () => {
+                const els = getTableElements();
+                if(!els) return;
+                for(let row of els.table.rows) row.insertCell(els.cellIndex).innerHTML = "<br>";
+            });
+            document.getElementById('table-add-col-right').addEventListener('click', () => {
+                const els = getTableElements();
+                if(!els) return;
+                for(let row of els.table.rows) row.insertCell(els.cellIndex + 1).innerHTML = "<br>";
+            });
+            document.getElementById('table-delete-row').addEventListener('click', () => {
+                const els = getTableElements();
+                if(els) els.table.deleteRow(els.rowIndex);
+            });
+            document.getElementById('table-delete-col').addEventListener('click', () => {
+                const els = getTableElements();
+                if(!els) return;
+                for(let row of els.table.rows) row.deleteCell(els.cellIndex);
+            });
+            document.getElementById('table-delete-table').addEventListener('click', () => {
+                const els = getTableElements();
+                if(els) els.table.remove();
+                tableTools.style.display = 'none';
+            });
+            
+
+            // --- Speech to Text Functionality ---
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const speechBtn = document.getElementById('speech-btn');
+            let recognition;
+
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                let isListening = false;
+                let finalTranscript = '';
+
+                recognition.onresult = event => {
+                    let interimTranscript = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            finalTranscript += event.results[i][0].transcript;
+                        } else {
+                            interimTranscript += event.results[i][0].transcript;
+                        }
+                    }
+                    // Insert final part into editor
+                    if(finalTranscript) {
+                        execCmd('insertText', finalTranscript);
+                        finalTranscript = '';
+                    }
+                };
+                
+                speechBtn.addEventListener('click', () => {
+                    isListening = !isListening;
+                    if (isListening) {
+                        recognition.lang = document.getElementById('speech-lang').value;
+                        recognition.start();
+                        speechBtn.classList.add('listening');
+                        speechBtn.title = 'Stop Dictation';
+                    } else {
+                        recognition.stop();
+                        speechBtn.classList.remove('listening');
+                        speechBtn.title = 'Start Dictation';
+                    }
+                });
+                 recognition.onend = () => {
+                    if (isListening) recognition.start(); // Keep listening if not manually stopped
+                 };
+            } else {
+                speechBtn.disabled = true;
+                document.getElementById('speech-lang').style.display = 'none';
+                console.log("Speech Recognition not supported in this browser.");
+            }
+
+            // --- Editor Event Listeners ---
+            const manageContextualMenus = () => {
+                 const selection = window.getSelection();
+                if (!selection.rangeCount) return;
+                const node = selection.getRangeAt(0).startContainer;
+                const parentCell = node.nodeType === 3 ? node.parentNode.closest('td, th') : node.closest('td, th');
+                
+                if(parentCell) {
+                    currentCell = parentCell;
+                    tableTools.style.display = 'flex';
+                } else {
+                    currentCell = null;
+                    tableTools.style.display = 'none';
+                }
+            };
+
+            editor.addEventListener('input', updateWordCount);
+            editor.addEventListener('keyup', updateToolbarStates);
+            editor.addEventListener('mouseup', updateToolbarStates);
+            document.addEventListener('selectionchange', () => {
+                updateToolbarStates();
+                manageContextualMenus();
             });
 
+            // Initial calls
+            updateWordCount();
+            editor.focus();
         });
     </script>
 </body>
 </html>
+
+
