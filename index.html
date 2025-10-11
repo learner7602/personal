@@ -3,741 +3,255 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Progress Report Generator</title>
+    <title>Voice-to-Text Document Creator</title>
+    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Configure Tailwind for custom colors and Inter font -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'primary': '#4f46e5',
+                        'secondary': '#8b5cf6',
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+        /* Custom styles for the microphone button animation */
+        .mic-button-active {
+            animation: pulse-red 1.5s infinite;
         }
-        .report-section {
-            background-color: #fff;
-            padding: 2rem;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
-        .input-group label {
-            font-weight: 500;
-        }
-        .report-table th, .report-table td {
-            padding: 0.75rem;
-            text-align: left;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .report-table th {
-            background-color: #f9fafb;
-            font-weight: 600;
-        }
-        .certificate-section {
-            background: linear-gradient(to bottom, #e0f2fe, #f1f5f9);
-            border: 5px solid #3b82f6;
-            border-radius: 1rem;
-            padding: 2rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            min-height: 500px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-        .certificate-title {
-            font-family: 'Inter', sans-serif;
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #1e3a8a;
-            margin-bottom: 1rem;
-        }
-        .certificate-subtitle {
-            font-size: 1.5rem;
-            color: #1f2937;
-            margin-bottom: 2rem;
-        }
-        .certificate-text {
-            font-size: 1.25rem;
-            color: #374151;
-            line-height: 1.5;
-            text-align: center;
-        }
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        .modal-content {
-            background-color: white;
-            padding: 2rem;
-            border-radius: 1rem;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            text-align: center;
-        }
-        @media print {
-            body * {
-                visibility: hidden;
-            }
-            .report-section, .report-section * {
-                visibility: visible;
-            }
-            .report-section {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                box-shadow: none;
-            }
-            .certificate-section, .certificate-section * {
-                visibility: visible;
-            }
-            .certificate-section {
-                 position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                box-shadow: none;
-            }
-            .no-print {
-                display: none;
-            }
-        }
-        
     </style>
 </head>
-<body class="p-6">
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4 font-sans">
 
-    <!-- Mode Selection Menu -->
-    <div id="mode-selection" class="max-w-xl mx-auto bg-white p-8 rounded-2xl shadow-lg no-print text-center">
-        <h1 class="text-3xl font-bold text-gray-800 mb-8">Choose Report Mode</h1>
-        <div class="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-4">
-            <button id="select-complete-profile" class="bg-indigo-600 text-white font-semibold py-4 px-8 rounded-full shadow-md hover:bg-indigo-700 transition duration-300 text-lg">
-                Complete Profile
+    <div class="w-full max-w-3xl bg-white p-6 md:p-10 rounded-xl shadow-2xl border border-gray-200">
+        <h1 class="text-3xl font-extrabold text-primary text-center mb-2">Voice Document Writer</h1>
+        <p class="text-gray-500 text-center mb-6">Start speaking to draft your text in real-time.</p>
+
+        <!-- Language Selector -->
+        <div class="flex justify-center gap-4 mb-6">
+            <button id="lang-en" data-lang="en-US" 
+                    class="lang-button px-4 py-2 text-sm font-semibold rounded-full transition duration-150">
+                English
             </button>
-            <button id="select-subject-wise" class="bg-blue-600 text-white font-semibold py-4 px-8 rounded-full shadow-md hover:bg-blue-700 transition duration-300 text-lg">
-                Subject-wise
+            <button id="lang-bn" data-lang="bn-BD" 
+                    class="lang-button px-4 py-2 text-sm font-semibold rounded-full transition duration-150">
+                বাংলা (Bengali)
             </button>
         </div>
-    </div>
 
-    <!-- Complete Profile Section (Initially Hidden) -->
-    <div id="complete-profile-section" class="hidden">
-        <div class="max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-lg no-print">
-            <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">Complete Profile Report</h1>
-            <form id="complete-report-form" class="space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                        <label for="cp-institutionName" class="block text-sm font-medium text-gray-700">Institution Name</label>
-                        <input type="text" id="cp-institutionName" name="institutionName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" placeholder="e.g., ABC School">
-                    </div>
-                    <div>
-                        <label for="cp-studentName" class="block text-sm font-medium text-gray-700">Student Name</label>
-                        <input type="text" id="cp-studentName" name="studentName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" placeholder="e.g., John Doe">
-                    </div>
-                    <div>
-                        <label for="cp-studentRoll" class="block text-sm font-medium text-gray-700">Roll Number</label>
-                        <input type="text" id="cp-studentRoll" name="studentRoll" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" placeholder="e.g., 101">
-                    </div>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 mt-6 rounded-lg">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tl-lg">Subject</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Test 1 (100)</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Test 2 (100)</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tr-lg">Unit Test 3 (100)</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200" id="cp-marks-input-body">
-                            <!-- Subject rows will be dynamically added here -->
-                        </tbody>
-                    </table>
-                </div>
-                <div class="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-4 mt-8">
-                    <button type="button" id="generate-cp-report-btn" class="bg-indigo-600 text-white font-semibold py-2 px-6 rounded-full shadow-md hover:bg-indigo-700 transition duration-300">
-                        Generate Report
-                    </button>
-                    <button type="button" id="generate-cp-certificate-btn" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-full shadow-md hover:bg-blue-700 transition duration-300">
-                        Generate Certificate
-                    </button>
-                </div>
-                <div class="flex justify-center mt-4">
-                    <button type="button" id="back-to-menu-cp" class="text-gray-500 hover:underline">Back to Menu</button>
-                </div>
-            </form>
+        <!-- Status Message -->
+        <div id="status" class="text-center mb-6 text-sm font-medium h-6 text-gray-700">
+            Click the microphone to begin.
         </div>
-    </div>
 
-    <!-- Subject-wise Section (Initially Hidden) -->
-    <div id="subject-wise-section" class="hidden">
-        <div class="max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-lg no-print">
-            <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">Subject-wise Report</h1>
-            <form id="subject-report-form" class="space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                        <label for="sw-institutionName" class="block text-sm font-medium text-gray-700">Institution Name</label>
-                        <input type="text" id="sw-institutionName" name="institutionName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" placeholder="e.g., ABC School">
-                    </div>
-                    <div>
-                        <label for="sw-studentName" class="block text-sm font-medium text-gray-700">Student Name</label>
-                        <input type="text" id="sw-studentName" name="studentName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" placeholder="e.g., John Doe">
-                    </div>
-                    <div>
-                        <label for="sw-studentRoll" class="block text-sm font-medium text-gray-700">Roll Number</label>
-                        <input type="text" id="sw-studentRoll" name="studentRoll" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" placeholder="e.g., 101">
-                    </div>
-                </div>
-                <div>
-                    <label for="sw-subject" class="block text-sm font-medium text-gray-700">Choose Subject</label>
-                    <select id="sw-subject" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2">
-                        <!-- Options will be dynamically added here -->
-                    </select>
-                </div>
-                <div>
-                    <label for="sw-test-count" class="block text-sm font-medium text-gray-700">Number of Tests</label>
-                    <input type="number" id="sw-test-count" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" min="1" max="10" value="1">
-                </div>
-                <div id="sw-marks-input-container" class="space-y-4">
-                    <!-- Dynamic test inputs will go here -->
-                </div>
-                <div class="flex justify-center mt-8">
-                    <button type="button" id="generate-sw-report-btn" class="bg-indigo-600 text-white font-semibold py-2 px-6 rounded-full shadow-md hover:bg-indigo-700 transition duration-300">
-                        Generate Report
-                    </button>
-                </div>
-                <div class="flex justify-center mt-4">
-                    <button type="button" id="back-to-menu-sw" class="text-gray-500 hover:underline">Back to Menu</button>
-                </div>
-            </form>
-        </div>
-    </div>
+        <!-- Text Output Area -->
+        <textarea id="output-text" rows="10" placeholder="Your transcribed text will appear here..."
+                  class="w-full p-4 border-2 border-primary rounded-lg shadow-inner focus:ring-secondary focus:border-secondary transition duration-150 ease-in-out resize-none text-gray-800"></textarea>
 
-    <!-- Message Modal -->
-    <div id="message-modal" class="modal hidden">
-        <div class="modal-content">
-            <h4 class="text-xl font-bold mb-4 text-red-600">Action Required</h4>
-            <p id="modal-message" class="text-gray-700 mb-4"></p>
-            <button id="close-modal-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600">Close</button>
-        </div>
-    </div>
+        <!-- Controls -->
+        <div class="flex flex-col items-center justify-center gap-4 mt-6">
+            
+            <!-- Microphone Button -->
+            <button id="mic-button"
+                    class="w-20 h-20 flex items-center justify-center rounded-full bg-primary text-white shadow-lg transition duration-300 ease-in-out hover:bg-secondary focus:outline-none focus:ring-4 focus:ring-primary/50">
+                <!-- SVG Microphone Icon -->
+                <svg id="mic-icon" xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 transition duration-150" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4z" clip-rule="evenodd" />
+                    <path fill-rule="evenodd" d="M6.25 10.155a.75.75 0 01.75.75v1.25a4 4 0 008 0v-1.25a.75.75 0 011.5 0v1.25a5.5 5.5 0 01-11 0v-1.25a.75.75 0 01.75-.75z" clip-rule="evenodd" />
+                    <path d="M11 14.75a.75.75 0 01.75.75v1.25H7.5v-1.25a.75.75 0 01.75-.75h3.5z" />
+                </svg>
+            </button>
+            <span id="mic-text" class="text-lg font-semibold text-primary">Start Recording</span>
 
-    <!-- Generated Report Section (Used for both modes) -->
-    <div id="report-output" class="hidden report-section max-w-4xl mx-auto my-8">
-        <div class="text-center mb-8">
-            <h2 id="report-institution-name" class="text-2xl font-bold text-gray-800"></h2>
-            <h3 class="text-xl font-medium text-gray-600 mt-2">Student Progress Report</h3>
-        </div>
-        <div class="grid grid-cols-2 gap-4 text-gray-700 mb-6" id="report-student-info">
-            <div>
-                <span class="font-semibold">Student Name:</span> <span id="report-student-name"></span>
-            </div>
-            <div>
-                <span class="font-semibold">Roll No:</span> <span id="report-student-roll"></span>
+            <div class="w-full flex justify-center mt-4">
+                <!-- Download Button -->
+                <button id="download-button" disabled
+                        class="px-6 py-3 bg-green-500 text-white font-bold rounded-lg shadow-md hover:bg-green-600 disabled:opacity-50 transition duration-150 ease-in-out">
+                    Download Document (.txt)
+                </button>
             </div>
         </div>
 
-        <div class="overflow-x-auto mb-8">
-            <table class="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg report-table">
-                <thead class="bg-gray-50" id="report-table-head">
-                    <!-- Table header will be dynamically set -->
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200" id="report-marks-body">
-                    <!-- Report rows will be dynamically added here -->
-                </tbody>
-            </table>
-        </div>
-
-        <div class="flex justify-between items-center mb-8" id="total-marks-container">
-            <p class="text-xl font-semibold">Total Marks: <span id="report-total-marks"></span></p>
-        </div>
-
-        <div class="flex flex-col items-center mb-8" id="chart-container">
-            <h4 class="text-lg font-semibold text-gray-800 mb-4">Progress Graph</h4>
-            <canvas id="progress-chart" class="w-full max-w-2xl"></canvas>
-        </div>
-        
-        <div class="flex justify-end mt-12">
-            <div class="text-center">
-                <p class="font-semibold text-lg border-b border-gray-400 w-48 py-1">Biswajit Maity</p>
-                <p class="text-sm text-gray-600 mt-2">Principal's Signature</p>
-            </div>
-        </div>
-        
-        <div class="flex justify-center mt-8 no-print" id="report-download-btn-container">
-            <button id="download-report-btn" class="bg-green-600 text-white font-semibold py-2 px-6 rounded-full shadow-md hover:bg-green-700 transition duration-300">
-                Download Report
-            </button>
-        </div>
-    </div>
-
-    <!-- Generated Certificate Section -->
-    <div id="certificate-output" class="hidden report-section max-w-4xl mx-auto my-8 certificate-section">
-        <h1 class="certificate-title">Certificate of Merit</h1>
-        <p class="certificate-subtitle">Awarded to</p>
-        <p id="certificate-student-name" class="certificate-text text-4xl font-bold text-blue-800 mb-4"></p>
-        <p class="certificate-text">for successfully completing all subjects at</p>
-        <p id="certificate-institution-name" class="certificate-text text-2xl font-semibold text-blue-700 mb-8"></p>
-        <p class="certificate-text">This certifies that the student has met and exceeded all academic requirements.</p>
-        <div class="flex justify-end mt-12 w-full">
-            <div class="text-center">
-                <p class="font-semibold text-lg border-b border-gray-400 w-48 py-1">Biswajit Maity</p>
-                <p class="text-sm text-gray-600 mt-2">Principal's Signature</p>
-            </div>
-        </div>
-        <div class="flex justify-center mt-8 no-print">
-            <button id="download-certificate-btn" class="bg-green-600 text-white font-semibold py-2 px-6 rounded-full shadow-md hover:bg-green-700 transition duration-300">
-                Download Certificate
-            </button>
+        <!-- Compatibility Warning -->
+        <div id="compatibility-warning" class="mt-8 text-center p-3 bg-yellow-100 border border-yellow-300 rounded-lg hidden">
+            <p class="text-sm text-yellow-800 font-medium">
+                ⚠️ Browser Warning: Speech recognition is not supported or requires a secure context (HTTPS/localhost).
+            </p>
         </div>
     </div>
 
     <script>
-        window.onload = function() {
-            // Initial setup to show the mode selection menu
-            document.getElementById('mode-selection').classList.remove('hidden');
-            
-            // Event listeners for mode selection buttons
-            document.getElementById('select-complete-profile').addEventListener('click', showCompleteProfile);
-            document.getElementById('select-subject-wise').addEventListener('click', showSubjectWise);
-            
-            // Event listeners for back to menu buttons
-            document.getElementById('back-to-menu-cp').addEventListener('click', showMenu);
-            document.getElementById('back-to-menu-sw').addEventListener('click', showMenu);
-            
-            // Event listeners for complete profile mode
-            document.getElementById('generate-cp-report-btn').addEventListener('click', generateCompleteReport);
-            document.getElementById('generate-cp-certificate-btn').addEventListener('click', generateCertificate);
-            
-            // Event listener for subject-wise mode
-            document.getElementById('generate-sw-report-btn').addEventListener('click', generateSubjectWiseReport);
-            document.getElementById('sw-test-count').addEventListener('input', updateSubjectWiseInputs);
-            
-            // Event listeners for download buttons and modal
-            document.getElementById('download-report-btn').addEventListener('click', downloadReport);
-            document.getElementById('download-certificate-btn').addEventListener('click', downloadCertificate);
-            document.getElementById('close-modal-btn').addEventListener('click', () => {
-                document.getElementById('message-modal').classList.add('hidden');
-            });
+        document.addEventListener('DOMContentLoaded', () => {
+            const micButton = document.getElementById('mic-button');
+            const micText = document.getElementById('mic-text');
+            const outputText = document.getElementById('output-text');
+            const statusDiv = document.getElementById('status');
+            const downloadButton = document.getElementById('download-button');
+            const warningDiv = document.getElementById('compatibility-warning');
+            const langEnButton = document.getElementById('lang-en');
+            const langBnButton = document.getElementById('lang-bn');
+            const languageButtons = document.querySelectorAll('.lang-button');
 
-            // Initial population of the complete profile subject list
-            populateCompleteProfileSubjects();
-            // Initial population of the subject-wise dropdown
-            populateSubjectWiseDropdown();
-            // Initial generation of subject-wise input fields
-            updateSubjectWiseInputs();
-        };
+            const ACTIVE_LANG_CLASSES = ['text-white', 'bg-primary', 'shadow-md'];
+            const INACTIVE_LANG_CLASSES = ['text-gray-600', 'bg-gray-200', 'hover:bg-primary/20', 'hover:text-primary'];
 
-        const subjects = ['Bengali-1st paper', 'Bengali-2nd paper', 'English-1st paper', 'English 2nd paper', 'Math', 'History', 'Geography', 'Life science', 'Physical Science'];
-        let myChart = null;
+            let recognition = null;
+            let isRecognizing = false;
+            let finalTranscript = '';
 
-        function showMenu() {
-            document.getElementById('mode-selection').classList.remove('hidden');
-            document.getElementById('complete-profile-section').classList.add('hidden');
-            document.getElementById('subject-wise-section').classList.add('hidden');
-            document.getElementById('report-output').classList.add('hidden');
-            document.getElementById('certificate-output').classList.add('hidden');
-        }
-
-        function showCompleteProfile() {
-            document.getElementById('mode-selection').classList.add('hidden');
-            document.getElementById('complete-profile-section').classList.remove('hidden');
-            document.getElementById('subject-wise-section').classList.add('hidden');
-            document.getElementById('report-output').classList.add('hidden');
-            document.getElementById('certificate-output').classList.add('hidden');
-        }
-
-        function showSubjectWise() {
-            document.getElementById('mode-selection').classList.add('hidden');
-            document.getElementById('subject-wise-section').classList.remove('hidden');
-            document.getElementById('complete-profile-section').classList.add('hidden');
-            document.getElementById('report-output').classList.add('hidden');
-            document.getElementById('certificate-output').classList.add('hidden');
-        }
-
-        function populateCompleteProfileSubjects() {
-            const marksInputBody = document.getElementById('cp-marks-input-body');
-            marksInputBody.innerHTML = '';
-            subjects.forEach(subject => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${subject}</td>
-                    <td class="px-6 py-4 whitespace-nowrap"><input type="number" data-subject="${subject}" data-test="ut1" class="w-full p-2 border rounded-md" min="0" max="100"></td>
-                    <td class="px-6 py-4 whitespace-nowrap"><input type="number" data-subject="${subject}" data-test="ut2" class="w-full p-2 border rounded-md" min="0" max="100"></td>
-                    <td class="px-6 py-4 whitespace-nowrap"><input type="number" data-subject="${subject}" data-test="ut3" class="w-full p-2 border rounded-md" min="0" max="100"></td>
-                `;
-                marksInputBody.appendChild(row);
-            });
-        }
-
-        function populateSubjectWiseDropdown() {
-            const dropdown = document.getElementById('sw-subject');
-            dropdown.innerHTML = '';
-            subjects.forEach(subject => {
-                const option = document.createElement('option');
-                option.value = subject;
-                option.textContent = subject;
-                dropdown.appendChild(option);
-            });
-        }
-
-        function updateSubjectWiseInputs() {
-            const count = parseInt(document.getElementById('sw-test-count').value);
-            const container = document.getElementById('sw-marks-input-container');
-            container.innerHTML = '';
-
-            for (let i = 1; i <= count; i++) {
-                const testDiv = document.createElement('div');
-                testDiv.className = "flex space-x-4";
-                testDiv.innerHTML = `
-                    <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700">Test ${i} Total Marks</label>
-                        <input type="number" data-test-total="${i}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-2" min="1" value="100">
-                    </div>
-                    <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700">Test ${i} Obtained Marks</label>
-                        <input type="number" data-test-obtained="${i}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-2" min="0">
-                    </div>
-                `;
-                container.appendChild(testDiv);
-            }
-        }
-
-        function getGrade(percentage) {
-            if (percentage >= 90) return 'AA';
-            if (percentage >= 80) return 'A+';
-            if (percentage >= 70) return 'A';
-            if (percentage >= 60) return 'B+';
-            if (percentage >= 50) return 'B';
-            if (percentage >= 40) return 'C+';
-            if (percentage >= 34) return 'C';
-            return 'D';
-        }
-
-        function showMessageModal(message, title = 'Action Required', isError = true) {
-            document.getElementById('modal-message').textContent = message;
-            const modalTitle = document.querySelector('#message-modal .modal-content h4');
-            modalTitle.textContent = title;
-            modalTitle.className = `text-xl font-bold mb-4 ${isError ? 'text-red-600' : 'text-green-600'}`;
-            document.getElementById('message-modal').classList.remove('hidden');
-        }
-
-        function generateCompleteReport() {
-            const institutionName = document.getElementById('cp-institutionName').value;
-            const studentName = document.getElementById('cp-studentName').value;
-            const studentRoll = document.getElementById('cp-studentRoll').value;
-
-            if (!institutionName || !studentName || !studentRoll) {
-                showMessageModal('Please fill in all student details to generate the report.');
+            // Check for Speech Recognition API compatibility
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                warningDiv.classList.remove('hidden');
+                micButton.disabled = true;
+                micText.textContent = 'Not Supported';
                 return;
             }
 
-            const reportData = [];
-            let totalMarks = 0;
-            const progressData = {};
+            // Initialize Speech Recognition
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true; // Keep listening even if pauses occur
+            recognition.interimResults = true; // Show results as they are being recognized
+            // recognition.lang will be set by the updateActiveLanguage function
 
-            subjects.forEach(subject => {
-                const ut1 = parseFloat(document.querySelector(`input[data-subject="${subject}"][data-test="ut1"]`).value) || 0;
-                const ut2 = parseFloat(document.querySelector(`input[data-subject="${subject}"][data-test="ut2"]`).value) || 0;
-                const ut3 = parseFloat(document.querySelector(`input[data-subject="${subject}"][data-test="ut3"]`).value) || 0;
+            // --- Language Logic ---
 
-                const subjectTotal = ut1 + ut2 + ut3;
-                const subjectPercentage = (subjectTotal / 300) * 100;
+            /**
+             * Updates the active language setting for the recognition engine and updates the button styling.
+             * @param {string} newLang - The language code (e.g., 'en-US', 'bn-BD').
+             */
+            function updateActiveLanguage(newLang) {
+                if (isRecognizing) {
+                    // Prevent changing language mid-recording
+                    statusDiv.textContent = 'Please stop recording before changing the language.';
+                    return;
+                }
                 
-                const status = (ut1 >= 34 && ut2 >= 34 && ut3 >= 34) ? 'Pass' : 'Fail';
-                const grade = getGrade(subjectPercentage);
-                totalMarks += subjectTotal;
-
-                reportData.push({
-                    subject, ut1, ut2, ut3, total: subjectTotal, status, grade
+                languageButtons.forEach(btn => {
+                    btn.classList.remove(...ACTIVE_LANG_CLASSES);
+                    btn.classList.add(...INACTIVE_LANG_CLASSES);
                 });
 
-                progressData[subject] = [ut1, ut2, ut3];
-            });
-
-            document.getElementById('report-institution-name').textContent = institutionName;
-            document.getElementById('report-student-name').textContent = studentName;
-            document.getElementById('report-student-roll').textContent = studentRoll;
-            document.getElementById('report-total-marks').textContent = totalMarks;
-
-            const reportBody = document.getElementById('report-marks-body');
-            reportBody.innerHTML = '';
-            
-            const tableHead = document.getElementById('report-table-head');
-            tableHead.innerHTML = `
-                <tr>
-                    <th class="px-6 py-3">Subject</th>
-                    <th class="px-6 py-3">Unit Test 1</th>
-                    <th class="px-6 py-3">Unit Test 2</th>
-                    <th class="px-6 py-3">Unit Test 3</th>
-                    <th class="px-6 py-3">Total (300)</th>
-                    <th class="px-6 py-3">Status</th>
-                    <th class="px-6 py-3">Grade</th>
-                </tr>
-            `;
-
-            reportData.forEach(data => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="px-6 py-4 text-sm font-medium text-gray-900">${data.subject}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500">${data.ut1}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500">${data.ut2}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500">${data.ut3}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500 font-semibold">${data.total}</td>
-                    <td class="px-6 py-4 text-sm font-bold ${data.status === 'Pass' ? 'text-green-600' : 'text-red-600'}">${data.status}</td>
-                    <td class="px-6 py-4 text-sm font-bold">${data.grade}</td>
-                `;
-                reportBody.appendChild(row);
-            });
-
-            generateProgressChart(progressData);
-            document.getElementById('report-output').classList.remove('hidden');
-            document.getElementById('certificate-output').classList.add('hidden');
-            document.getElementById('report-student-info').classList.remove('hidden');
-            document.getElementById('total-marks-container').classList.remove('hidden');
-            document.getElementById('chart-container').classList.remove('hidden');
-        }
-
-        function generateSubjectWiseReport() {
-            const institutionName = document.getElementById('sw-institutionName').value;
-            const studentName = document.getElementById('sw-studentName').value;
-            const studentRoll = document.getElementById('sw-studentRoll').value;
-
-            if (!institutionName || !studentName || !studentRoll) {
-                showMessageModal('Please fill in all student details to generate the report.');
-                return;
+                const selectedButton = document.querySelector(`[data-lang="${newLang}"]`);
+                if (selectedButton) {
+                    selectedButton.classList.remove(...INACTIVE_LANG_CLASSES);
+                    selectedButton.classList.add(...ACTIVE_LANG_CLASSES);
+                    
+                    recognition.lang = newLang;
+                    statusDiv.textContent = `Language set to ${selectedButton.textContent}. Click the microphone to begin.`;
+                }
             }
 
-            const subject = document.getElementById('sw-subject').value;
-            const testCount = parseInt(document.getElementById('sw-test-count').value);
-            
-            let totalObtainedMarks = 0;
-            let totalPossibleMarks = 0;
-            let allPassed = true;
-            const testMarks = [];
+            // Set initial language to English on load
+            updateActiveLanguage('en-US');
 
-            for (let i = 1; i <= testCount; i++) {
-                const totalTestMarks = parseFloat(document.querySelector(`[data-test-total="${i}"]`).value);
-                const obtainedTestMarks = parseFloat(document.querySelector(`[data-test-obtained="${i}"]`).value);
+            // Add click listeners to the language buttons
+            langEnButton.addEventListener('click', () => updateActiveLanguage(langEnButton.dataset.lang));
+            langBnButton.addEventListener('click', () => updateActiveLanguage(langBnButton.dataset.lang));
 
-                if (isNaN(totalTestMarks) || isNaN(obtainedTestMarks)) {
-                    showMessageModal('Please enter valid numbers for all test marks.');
+
+            // --- Recognition Event Handlers ---
+
+            recognition.onstart = () => {
+                isRecognizing = true;
+                micButton.classList.add('mic-button-active', 'bg-red-500');
+                micButton.classList.remove('bg-primary', 'hover:bg-secondary');
+                micText.textContent = 'Listening... Speak now.';
+                statusDiv.textContent = `Listening in ${recognition.lang}. Speak clearly into your microphone.`;
+            };
+
+            recognition.onend = () => {
+                isRecognizing = false;
+                micButton.classList.remove('mic-button-active', 'bg-red-500');
+                micButton.classList.add('bg-primary', 'hover:bg-secondary');
+                micText.textContent = 'Start Recording';
+                statusDiv.textContent = 'Recognition stopped.';
+                
+                // Enable download button if there is text
+                downloadButton.disabled = outputText.value.trim() === '';
+            };
+
+            recognition.onerror = (event) => {
+                isRecognizing = false;
+                console.error('Speech Recognition Error:', event.error);
+                statusDiv.textContent = `Error: ${event.error}. Click to retry.`;
+                micButton.classList.remove('mic-button-active', 'bg-red-500');
+                micButton.classList.add('bg-primary', 'hover:bg-secondary');
+                micText.textContent = 'Start Recording';
+            };
+
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                
+                // Loop through results
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript + '.\n'; // Add final recognized text
+                    } else {
+                        interimTranscript += transcript; // Show interim text
+                    }
+                }
+
+                // Update the text area with final text plus the current interim result
+                outputText.value = finalTranscript + interimTranscript;
+            };
+
+            // --- Button Handlers ---
+
+            micButton.addEventListener('click', () => {
+                if (isRecognizing) {
+                    recognition.stop();
+                } else {
+                    finalTranscript = outputText.value; // Keep existing text before starting
+                    recognition.start();
+                }
+            });
+
+            downloadButton.addEventListener('click', () => {
+                const textToSave = outputText.value;
+
+                if (!textToSave.trim()) {
+                    statusDiv.textContent = 'Nothing to download. Please record some text first.';
                     return;
                 }
 
-                totalObtainedMarks += obtainedTestMarks;
-                totalPossibleMarks += totalTestMarks;
-                testMarks.push(obtainedTestMarks);
+                // Create a Blob containing the text data
+                const blob = new Blob([textToSave], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+
+                // Create a temporary link element to trigger the download
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `voice_document_${new Date().toISOString().slice(0, 10)}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
                 
-                // Assuming a minimum of 34% per test to pass
-                if (obtainedTestMarks / totalTestMarks * 100 < 34) {
-                    allPassed = false;
-                }
-            }
+                statusDiv.textContent = 'File downloaded successfully as .txt';
+            });
             
-            if (totalPossibleMarks === 0) {
-                 showMessageModal('Total marks cannot be zero.');
-                 return;
-            }
-
-            const percentage = (totalObtainedMarks / totalPossibleMarks) * 100;
-            const grade = getGrade(percentage);
-            const status = allPassed ? 'Pass' : 'Fail';
-
-            document.getElementById('report-institution-name').textContent = institutionName;
-            document.getElementById('report-student-name').textContent = studentName;
-            document.getElementById('report-student-roll').textContent = studentRoll;
-            document.getElementById('report-total-marks').textContent = totalObtainedMarks;
-
-            const reportBody = document.getElementById('report-marks-body');
-            reportBody.innerHTML = '';
-            
-            const tableHead = document.getElementById('report-table-head');
-            let tableHeaderHtml = `<tr><th class="px-6 py-3">Subject</th>`;
-            for(let i = 1; i <= testCount; i++) {
-                tableHeaderHtml += `<th class="px-6 py-3">Test ${i}</th>`;
-            }
-            tableHeaderHtml += `<th class="px-6 py-3">Total (${totalPossibleMarks})</th>
-                                <th class="px-6 py-3">Status</th>
-                                <th class="px-6 py-3">Grade</th></tr>`;
-            tableHead.innerHTML = tableHeaderHtml;
-
-            const row = document.createElement('tr');
-            let rowHtml = `<td class="px-6 py-4 text-sm font-medium text-gray-900">${subject}</td>`;
-            testMarks.forEach(mark => {
-                rowHtml += `<td class="px-6 py-4 text-sm text-gray-500">${mark}</td>`;
-            });
-            rowHtml += `<td class="px-6 py-4 text-sm text-gray-500 font-semibold">${totalObtainedMarks}</td>
-                        <td class="px-6 py-4 text-sm font-bold ${status === 'Pass' ? 'text-green-600' : 'text-red-600'}">${status}</td>
-                        <td class="px-6 py-4 text-sm font-bold">${grade}</td>`;
-            row.innerHTML = rowHtml;
-            reportBody.appendChild(row);
-
-            document.getElementById('report-output').classList.remove('hidden');
-            document.getElementById('certificate-output').classList.add('hidden');
-            document.getElementById('report-student-info').classList.remove('hidden');
-            document.getElementById('total-marks-container').classList.add('hidden');
-            document.getElementById('chart-container').classList.add('hidden');
-        }
-
-        function generateCertificate() {
-            const institutionName = document.getElementById('cp-institutionName').value;
-            const studentName = document.getElementById('cp-studentName').value;
-            const studentRoll = document.getElementById('cp-studentRoll').value;
-
-            if (!institutionName || !studentName || !studentRoll) {
-                showMessageModal('Please fill in all student details to generate the certificate.');
-                return;
-            }
-
-            let allPassed = true;
-            subjects.forEach(subject => {
-                const ut1 = parseFloat(document.querySelector(`input[data-subject="${subject}"][data-test="ut1"]`).value) || 0;
-                const ut2 = parseFloat(document.querySelector(`input[data-subject="${subject}"][data-test="ut2"]`).value) || 0;
-                const ut3 = parseFloat(document.querySelector(`input[data-subject="${subject}"][data-test="ut3"]`).value) || 0;
-                if (!(ut1 >= 34 && ut2 >= 34 && ut3 >= 34)) {
-                    allPassed = false;
-                }
+            // Check if text is present to enable download button on load/changes
+            outputText.addEventListener('input', () => {
+                downloadButton.disabled = outputText.value.trim() === '';
             });
 
-            if (allPassed) {
-                document.getElementById('certificate-student-name').textContent = studentName;
-                document.getElementById('certificate-institution-name').textContent = institutionName;
-                document.getElementById('report-output').classList.add('hidden');
-                document.getElementById('complete-profile-section').classList.add('hidden');
-                document.getElementById('certificate-output').classList.remove('hidden');
-            } else {
-                showMessageModal('A certificate cannot be generated because the student has failed one or more subjects.');
-            }
-        }
-
-        function generateProgressChart(data) {
-            const ctx = document.getElementById('progress-chart').getContext('2d');
-            if (myChart) {
-                myChart.destroy();
-            }
-
-            const datasets = subjects.map(subject => {
-                const color = getRandomColor();
-                return {
-                    label: subject,
-                    data: data[subject],
-                    borderColor: color,
-                    backgroundColor: `rgba(${color.slice(4, -1)}, 0.2)`,
-                    tension: 0.4,
-                    fill: false,
-                    pointRadius: 5
-                };
-            });
-
-            myChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['Unit Test 1', 'Unit Test 2', 'Unit Test 3'],
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    aspectRatio: 2,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            title: {
-                                display: true,
-                                text: 'Marks (out of 100)',
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top',
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                        }
-                    }
-                }
-            });
-        }
-
-        function getRandomColor() {
-            const r = Math.floor(Math.random() * 255);
-            const g = Math.floor(Math.random() * 255);
-            const b = Math.floor(Math.random() * 255);
-            return `rgb(${r},${g},${b})`;
-        }
-
-        function downloadReport() {
-            const { jsPDF } = window.jspdf;
-            const reportElement = document.getElementById('report-output');
-            const downloadButton = document.getElementById('download-report-btn');
-            
-            downloadButton.classList.add('hidden');
-
-            html2canvas(reportElement, { scale: 2 }).then(canvas => {
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                const imgWidth = 210;
-                const pageHeight = 297;
-                const imgHeight = canvas.height * imgWidth / canvas.width;
-                let heightLeft = imgHeight;
-                let position = 0;
-
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-
-                while (heightLeft >= 0) {
-                    position = heightLeft - imgHeight;
-                    pdf.addPage();
-                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                    heightLeft -= pageHeight;
-                }
-                pdf.save('progress_report.pdf');
-
-                downloadButton.classList.remove('hidden');
-            });
-        }
-
-        function downloadCertificate() {
-            const { jsPDF } = window.jspdf;
-            const certificateElement = document.getElementById('certificate-output');
-            const downloadButton = document.getElementById('download-certificate-btn');
-            
-            downloadButton.classList.add('hidden');
-
-            html2canvas(certificateElement, { scale: 2 }).then(canvas => {
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF('l', 'mm', 'a4');
-                const imgWidth = 297;
-                const pageHeight = 210;
-                const imgHeight = canvas.height * imgWidth / canvas.width;
-                let heightLeft = imgHeight;
-                let position = 0;
-
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-
-                while (heightLeft >= 0) {
-                    position = heightLeft - imgHeight;
-                    pdf.addPage();
-                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                    heightLeft -= pageHeight;
-                }
-                pdf.save('certificate_of_merit.pdf');
-
-                downloadButton.classList.remove('hidden');
-            });
-        }
+        });
     </script>
 </body>
 </html>
