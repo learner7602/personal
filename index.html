@@ -181,8 +181,11 @@
                 micText.textContent = 'Start Recording';
                 statusDiv.textContent = 'Recognition stopped.';
                 
+                // Ensure the final text is clean when saving/stopping
+                finalTranscript = outputText.value.trim() + ' ';
+                
                 // Enable download button if there is text
-                downloadButton.disabled = outputText.value.trim() === '';
+                downloadButton.disabled = finalTranscript.trim() === '';
             };
 
             recognition.onerror = (event) => {
@@ -195,20 +198,34 @@
             };
 
             recognition.onresult = (event) => {
-                let interimTranscript = '';
+                let currentInterim = '';
                 
-                // Loop through results
+                // Loop through results from the current event's index up
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     const transcript = event.results[i][0].transcript;
+                    
                     if (event.results[i].isFinal) {
-                        finalTranscript += transcript + '.\n'; // Add final recognized text
+                        // If it's final, add it to the permanent storage (with a space separator)
+                        // This replaces the old logic that added '.\n'
+                        finalTranscript += transcript + ' '; 
                     } else {
-                        interimTranscript += transcript; // Show interim text
+                        // If it's interim, store it temporarily (this usually catches the latest result)
+                        currentInterim = transcript;
                     }
                 }
 
-                // Update the text area with final text plus the current interim result
-                outputText.value = finalTranscript + interimTranscript;
+                // Update the text area with final text plus the current interim result.
+                let displayText = finalTranscript.trim();
+                
+                if (currentInterim.length > 0) {
+                    // Add space only if permanent text exists and interim text is coming
+                    if (displayText.length > 0) {
+                         displayText += ' ';
+                    }
+                    displayText += currentInterim;
+                }
+                
+                outputText.value = displayText;
             };
 
             // --- Button Handlers ---
@@ -217,7 +234,8 @@
                 if (isRecognizing) {
                     recognition.stop();
                 } else {
-                    finalTranscript = outputText.value; // Keep existing text before starting
+                    // Start with the existing text content, ensuring it ends with a space for new dictation
+                    finalTranscript = outputText.value.trim() + ' '; 
                     recognition.start();
                 }
             });
