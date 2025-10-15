@@ -3,445 +3,770 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Word Processor</title>
-    <!-- Tailwind CSS for styling, loaded via CDN -->
+    <title>Educational Book Store - COD & Firebase</title>
+    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Custom Google Fonts: Inter and Noto Sans Bengali -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;700&display=swap" rel="stylesheet">
-
-    <!-- Custom CSS styles embedded within the HTML file -->
     <style>
+        /* Custom styles and font setting */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
+            background-color: #f7f9fb;
         }
-
-        #editor {
-            outline: none;
-            padding: 2.5rem;
-            line-height: 1.75;
-            min-height: 11in;
-            width: 8.5in;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            transition: box-shadow 0.3s ease;
+        .container-padding {
+            padding: 1rem; /* Default for mobile */
         }
-        #editor:focus {
-            box-shadow: 0 0 15px rgba(43, 87, 154, 0.4);
-        }
-        #editor table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-        #editor td, #editor th {
-            border: 1px solid #ccc;
-            padding: 8px;
-        }
-
-        .theme-bg { background-color: #2b579a; }
-        .theme-text { color: #2b579a; }
-
-        .ribbon-btn {
-            background-color: transparent; border: 1px solid transparent; border-radius: 4px;
-            padding: 4px; margin: 1px; transition: background-color 0.2s ease, border-color 0.2s ease;
-            display: inline-flex; align-items: center; justify-content: center; color: white;
-        }
-        .ribbon-btn:hover { background-color: #4c72b0; }
-        .ribbon-btn.active { background-color: #1e3c6a; border-color: #6fa6ff; }
-        .ribbon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .ribbon-btn svg { width: 20px; height: 20px; }
-        
-        .ribbon-select, .ribbon-input {
-            border: 1px solid #7a9dcf; border-radius: 4px; padding: 2px 4px; font-size: 14px;
-            background-color: #f7fafc; color: #1a202c;
-        }
-        .ribbon-select:hover, .ribbon-input:hover { border-color: #ffffff; }
-
-        /* Dropdown for Table creation */
-        .dropdown { position: relative; display: inline-block; }
-        .dropdown-content { display: none; position: absolute; background-color: #f9f9f9;
-            min-width: 160px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); z-index: 10;
-        }
-        .dropdown:hover .dropdown-content { display: block; }
-        #table-creator { display: grid; grid-template-columns: repeat(10, 20px); gap: 2px; padding: 5px; }
-        .table-cell-selector { width: 20px; height: 20px; background-color: #e0e0e0; border: 1px solid #fff; }
-        .table-cell-selector.selected { background-color: #5b9bd5; border: 1px solid #1e3c6a; }
-
-        /* Contextual Table Tools */
-        #table-tools {
-            display: none; background-color: #1e3c6a; padding: 4px; border-radius: 6px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 20;
-        }
-         #table-tools .ribbon-btn:hover { background-color: #4c72b0; }
-
-        /* Speech Recognition Button animation */
-        .listening {
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { background-color: #ef4444; }
-            50% { background-color: #f87171; }
-            100% { background-color: #ef4444; }
-        }
-
-        @media print {
-            body { background-color: #fff !important; }
-            #controls, #status-bar, #table-tools { display: none !important; }
-            #editor-container { padding: 0 !important; background-color: #fff !important; }
-            #editor { width: 100% !important; min-height: auto !important; box-shadow: none !important;
-                border: none !important; padding: 0 !important; margin: 0 !important;
+        @media (min-width: 640px) {
+            .container-padding {
+                padding: 2rem;
             }
+        }
+        /* Custom scrollbar for better look */
+        .overflow-y-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .overflow-y-scroll::-webkit-scrollbar-thumb {
+            background-color: #a8a8a8;
+            border-radius: 3px;
+        }
+        .tab-active {
+            border-bottom: 2px solid #4F46E5;
+            color: #4F46E5;
+        }
+        /* Mobile Cart Styles */
+        #cart-container {
+            transition: opacity 0.3s ease-in-out;
+        }
+        #cart-content {
+            transition: transform 0.3s ease-in-out;
         }
     </style>
 </head>
-<body class="bg-gray-50 flex flex-col h-screen">
+<body class="min-h-screen">
 
-    <!-- Top Ribbon Controls -->
-    <header id="controls" class="theme-bg shadow-md px-4 py-2 flex-shrink-0 text-white">
-        <div class="flex flex-wrap items-center gap-x-4">
-            
-            <!-- Font Style -->
-            <div class="flex items-center space-x-2 border-r border-blue-400 pr-4">
-                 <select id="font-family" class="ribbon-select w-40" title="Font Family">
-                    <option>Arial</option><option>Verdana</option><option>Times New Roman</option><option>Georgia</option>
-                    <option>Courier New</option><option>Inter</option><option>Noto Sans Bengali</option>
-                </select>
-                 <select id="font-size" class="ribbon-select w-16" title="Font Size">
-                    <option>10</option><option>12</option><option>14</option><option selected>16</option>
-                    <option>18</option><option>24</option><option>32</option>
-                </select>
-            </div>
-            
-            <!-- Text Formatting -->
-            <div class="flex items-center space-x-1 border-r border-blue-400 pr-4">
-                <button class="ribbon-btn" data-command="bold" title="Bold"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.5,15.5H10V12.5H13.5A1.5,1.5 0 0,1 15,14A1.5,1.5 0 0,1 13.5,15.5M10,6.5H13A1.5,1.5 0 0,1 14.5,8A1.5,1.5 0 0,1 13,9.5H10V6.5M15.6,10.79C16.57,10.11 17.25,9 17.25,8C17.25,5.74 15.5,4 13.25,4H7.5V18H14.04C16.14,18 17.75,16.3 17.75,14.21C17.75,12.69 16.89,11.39 15.6,10.79Z"></path></svg></button>
-                <button class="ribbon-btn" data-command="italic" title="Italic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10,4V7H12.21L8.79,15H6V18H14V15H11.79L15.21,7H18V4H10Z"></path></svg></button>
-                <button class="ribbon-btn" data-command="underline" title="Underline"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5,21H19V19H5V21M12,17A6,6 0 0,0 18,11V3H15.5V11A3.5,3.5 0 0,1 12,14.5A3.5,3.5 0 0,1 8.5,11V3H6V11A6,6 0 0,0 12,17Z"></path></svg></button>
-                <button class="ribbon-btn" data-command="strikethrough" title="Strikethrough"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14.25,12L12,9.75L9.75,12L12,14.25M10,20H14V17H10M3,4V6H5V12C5,14.76 7.24,17 10,17H11V20H13V17H14C16.76,17 19,14.76 19,12V6H21V4M17,12C17,13.65 15.65,15 14,15H10C8.35,15 7,13.65 7,12V6H17V12Z" /></svg></button>
-            </div>
-            
-            <!-- Color -->
-            <div class="flex items-center space-x-2 border-r border-blue-400 pr-4">
-                 <div class="relative flex items-center p-1 rounded" title="Text Color"><span class="font-bold text-xl mr-1">A</span><input type="color" id="fore-color" class="ribbon-input h-6 w-8 p-0 cursor-pointer" value="#000000"></div>
-                <div class="relative flex items-center p-1 rounded" title="Highlight Color"><svg class="w-6 h-6 mr-1" viewBox="0 0 24 24" fill="currentColor"><path d="M17.2,20.5L15.8,22L5,11.2V22H3V2H13.2L17.2,6V20.5M16,7L12.5,3.5V7H16Z" /></svg><input type="color" id="back-color" class="ribbon-input h-6 w-8 p-0 cursor-pointer" value="#ffffff"></div>
-            </div>
+    <!-- Authentication Status Alert Banner -->
+    <div id="auth-alert" class="hidden fixed top-0 left-0 right-0 z-50 p-3 text-center bg-red-600 text-white font-semibold rounded-b-lg shadow-xl">
+        Authentication Error: Please check your Firebase Console setup and config values.
+    </div>
 
-            <!-- Paragraph -->
-            <div class="flex items-center space-x-1 border-r border-blue-400 pr-4">
-                <button class="ribbon-btn" data-command="justifyLeft" title="Align Left"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3,4H21V6H3V4M3,9H21V11H3V9M3,14H21V16H3V14M3,19H15V21H3V19Z" /></svg></button>
-                <button class="ribbon-btn" data-command="justifyCenter" title="Align Center"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3,4H21V6H3V4M3,9H21V11H3V9M9,14H15V16H9V14M3,19H21V21H3V19Z" /></svg></button>
-                <button class="ribbon-btn" data-command="justifyRight" title="Align Right"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3,4H21V6H3V4M3,9H21V11H3V9M9,14H21V16H9V14M3,19H21V21H3V19Z" /></svg></button>
-                <button class="ribbon-btn" data-command="insertOrderedList" title="Numbered List"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2,17H4.5V17.5H3V18.5H4.5V19H2V20H5V16H2M3,8H4V4H2V5H3M7,5V7H21V5M7,19V21H21V19M7,12V14H21V12M2.5,14H4.5L2,11.5V10H5V11.5H3L5,14V15H2V14Z" /></svg></button>
-                <button class="ribbon-btn" data-command="insertUnorderedList" title="Bulleted List"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7,5V7H21V5M7,19V21H21V19M7,12V14H21V12M4,4.5A1.5,1.5 0 0,1 5.5,6A1.5,1.5 0 0,1 4,7.5A1.5,1.5 0 0,1 2.5,6A1.5,1.5 0 0,1 4,4.5M4,18.5A1.5,1.5 0 0,1 5.5,20A1.5,1.5 0 0,1 4,21.5A1.5,1.5 0 0,1 2.5,20A1.5,1.5 0 0,1 4,18.5M4,11.5A1.5,1.5 0 0,1 5.5,13A1.5,1.5 0 0,1 4,14.5A1.5,1.5 0 0,1 2.5,13A1.5,1.5 0 0,1 4,11.5Z" /></svg></button>
-            </div>
-
-            <!-- Insert -->
-            <div class="flex items-center space-x-1 border-r border-blue-400 pr-4">
-                 <button class="ribbon-btn" id="insert-link" title="Insert Link"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.9,12C3.9,10.29 5.29,8.9 7,8.9H11V7H7A5,5 0 0,0 2,12A5,5 0 0,0 7,17H11V15.1H7C5.29,15.1 3.9,13.71 3.9,12M8,13H16V11H8V13M17,7H13V8.9H17C18.71,8.9 20.1,10.29 20.1,12C20.1,13.71 18.71,15.1 17,15.1H13V17H17A5,5 0 0,0 22,12A5,5 0 0,0 17,7Z" /></svg></button>
-                <button class="ribbon-btn" id="insert-image" title="Insert Image"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19,19H5V5H19M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M13.96,12.29L11.21,15.83L9.25,13.47L6.5,17H17.5L13.96,12.29Z" /></svg></button>
-                <div class="dropdown">
-                    <button class="ribbon-btn" title="Insert Table"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5,4H19A2,2 0 0,1 21,6V18A2,2 0 0,1 19,20H5A2,2 0 0,1 3,18V6A2,2 0 0,1 5,4M5,8V12H11V8H5M13,8V12H19V8H13M5,14V18H11V14H5M13,14V18H19V14H13Z" /></svg></button>
-                    <div class="dropdown-content"><div id="table-creator-info" class="text-center text-black text-sm p-1">Insert Table</div><div id="table-creator"></div></div>
+    <!-- Main Header -->
+    <header class="bg-white shadow-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto container-padding flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-indigo-600">EduBook Store (COD)</h1>
+            <div class="flex items-center space-x-4">
+                <div class="text-sm hidden sm:block text-gray-600 truncate">
+                    User ID: <span id="user-id-display" class="font-mono text-xs font-semibold text-gray-800">Signing In...</span>
                 </div>
+                <button id="cart-button" class="relative p-2 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span id="cart-count" class="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">0</span>
+                </button>
             </div>
-
-            <!-- Voice -->
-            <div class="flex items-center space-x-2 border-r border-blue-400 pr-4">
-                <button class="ribbon-btn" id="speech-btn" title="Start Dictation"><svg id="speech-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z" /></svg></button>
-                <select id="speech-lang" class="ribbon-select w-28" title="Language">
-                    <option value="en-US">English</option>
-                    <option value="bn-IN">Bengali</option>
-                </select>
-            </div>
-            
-            <!-- File -->
-            <div class="flex items-center space-x-1">
-                 <button class="ribbon-btn" id="download-btn" title="Save Document"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17,3H5C3.89,3 3,3.9 3,5V19C3,20.1 3.9,21 5,21H19C20.1,21 21,20.1 21,19V7L17,3M19,19H5V5H16.17L19,7.83V19M12,12C10.34,12 9,13.34 9,15C9,16.66 10.34,18 12,18C13.66,18 15,16.66 15,15C15,13.34 13.66,12 12,12M6,6H15V10H6V6Z" /></svg></button>
-                 <button class="ribbon-btn" id="print-btn" title="Print Document"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19,8H5C3.34,8 2,9.34 2,11V17H6V21H18V17H22V11C22,9.34 20.66,8 19,8M16,19H8V14H16V19M19,12C18.45,12 18,11.55 18,11C18,10.45 18.45,10 19,10C19.55,10 20,10.45 20,11C20,11.55 19.55,12 19,12M18,3H6V7H18V3Z" /></svg></button>
-            </div>
-        </div>
-        <!-- Contextual Table Tools -->
-        <div id="table-tools" class="flex items-center space-x-1 mt-2">
-            <span class="font-bold text-sm mr-2">Table Tools:</span>
-            <button class="ribbon-btn" id="table-add-row-above" title="Add Row Above"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 14H2V16H22V14M22 8H2V13H22V8M18 4H6V7H18V4Z" /></svg></button>
-            <button class="ribbon-btn" id="table-add-row-below" title="Add Row Below"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 10H2V12H22V10M22 4H2V9H22V4M18 16H6V19H18V16Z" /></svg></button>
-            <button class="ribbon-btn" id="table-add-col-left" title="Add Column Left"><svg viewBox="0 0 24 24" fill="currentColor" style="transform: rotate(90deg);"><path d="M22 14H2V16H22V14M22 8H2V13H22V8M18 4H6V7H18V4Z" /></svg></button>
-            <button class="ribbon-btn" id="table-add-col-right" title="Add Column Right"><svg viewBox="0 0 24 24" fill="currentColor" style="transform: rotate(90deg);"><path d="M22 10H2V12H22V10M22 4H2V9H22V4M18 16H6V19H18V16Z" /></svg></button>
-            <button class="ribbon-btn" id="table-delete-row" title="Delete Row"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 10H2V12H22V10M22 4H2V9H22V4M18 16H6V19H18V16Z" /></svg></button>
-            <button class="ribbon-btn" id="table-delete-col" title="Delete Column"><svg viewBox="0 0 24 24" fill="currentColor" style="transform: rotate(90deg);"><path d="M22 10H2V12H22V10M22 4H2V9H22V4M18 16H6V19H18V16Z" /></svg></button>
-            <button class="ribbon-btn" id="table-delete-table" title="Delete Table"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19,4H5A2,2 0 0,0 3,6V18A2,2 0 0,0 5,20H19A2,2 0 0,0 21,18V6A2,2 0 0,0 19,4M11,17H9V12H11V17M15,17H13V12H15V17M19,8H5V6H19V8Z" /></svg></button>
         </div>
     </header>
 
-    <!-- Main Content Area -->
-    <main id="editor-container" class="flex-grow p-8 overflow-y-auto bg-gray-200">
-        <div id="editor" contenteditable="true" class="bg-white mx-auto">
-            <h1>Welcome to Your Web Document</h1>
-            <p>This is a fully editable document, much like Microsoft Word, but running entirely in your browser. You can use the controls in the ribbon above to format your text.</p>
-            <p><b>New Features Added:</b> You can now insert tables and use your voice to type in English or <span style="font-family: 'Noto Sans Bengali', sans-serif;">বাংলা</span>!</p>
-            <ul><li>Create bulleted lists.</li><li>Or numbered lists.</li></ul>
-            <p>Happy writing!</p>
+    <!-- Main Content Layout (Desktop) -->
+    <div class="max-w-7xl mx-auto flex flex-col lg:flex-row container-padding gap-6">
+
+        <!-- Left Column: Catalog, Inquiry Form, History -->
+        <main class="lg:w-2/3 flex-grow space-y-8">
+            
+            <!-- Book Catalog -->
+            <section id="catalog-section">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-2">Educational Book Catalog</h2>
+                <div id="catalog-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <!-- Catalog items will be injected here -->
+                </div>
+            </section>
+
+            <!-- Book Inquiry / Request Form -->
+            <section id="inquiry-section" class="bg-white p-6 rounded-xl shadow-lg border border-indigo-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 text-indigo-700">Book Inquiry / Request Form</h2>
+                <p class="text-sm text-gray-500 mb-4">Can't find a book? Submit a request here. We will contact you soon!</p>
+                
+                <form id="inquiry-form" class="space-y-4">
+                    <div>
+                        <label for="inquiry-book-name" class="block text-sm font-medium text-gray-700">Book Name / Topic *</label>
+                        <input type="text" id="inquiry-book-name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border">
+                    </div>
+                    <div>
+                        <label for="inquiry-phone" class="block text-sm font-medium text-gray-700">Mobile Number *</label>
+                        <input type="tel" id="inquiry-phone" required pattern="[0-9]{10}" title="10-digit mobile number" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border">
+                    </div>
+                    <div>
+                        <label for="inquiry-address" class="block text-sm font-medium text-gray-700">Address for Contact *</label>
+                        <textarea id="inquiry-address" rows="3" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border"></textarea>
+                    </div>
+                    <button type="submit" id="submit-inquiry-btn" class="w-full inline-flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out">
+                        Submit Inquiry
+                    </button>
+                </form>
+            </section>
+
+            <!-- Order/Inquiry History -->
+            <section id="history-section" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Your History</h2>
+                <div class="flex border-b mb-4">
+                    <button id="tab-orders" class="px-4 py-2 text-sm font-medium transition duration-150 ease-in-out tab-active">Your Orders</button>
+                    <button id="tab-inquiries" class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition duration-150 ease-in-out">Your Inquiries</button>
+                </div>
+                
+                <div id="orders-list" class="space-y-4">
+                    <!-- History list for Orders -->
+                    <p class="text-gray-500 italic">No previous orders found.</p>
+                </div>
+                
+                <div id="inquiries-list" class="space-y-4 hidden">
+                    <!-- History list for Inquiries -->
+                    <p class="text-gray-500 italic">No previous inquiries found.</p>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Right Column: Cart and Checkout (Fixed Position on Desktop) -->
+        <aside id="cart-container" class="lg:w-1/3 fixed lg:sticky top-0 right-0 h-full lg:h-auto z-40 bg-gray-900 bg-opacity-50 lg:bg-transparent transition-opacity opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto">
+            <div id="cart-content" class="h-full w-full lg:w-auto transform translate-x-full lg:translate-x-0 bg-white p-6 rounded-l-xl lg:rounded-xl shadow-2xl lg:shadow-lg overflow-y-scroll space-y-6 lg:mt-[96px]">
+                
+                <div class="flex justify-between items-center pb-4 border-b">
+                    <h3 class="text-xl font-bold text-gray-800">Your Cart</h3>
+                    <button id="close-cart-button" class="lg:hidden p-2 rounded-full text-gray-500 hover:text-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <!-- Cart Items List -->
+                <div id="cart-items" class="space-y-4">
+                    <p id="empty-cart-message" class="text-center text-gray-500 italic">Your cart is empty.</p>
+                    <!-- Cart items will be injected here -->
+                </div>
+
+                <!-- Summary -->
+                <div class="pt-4 border-t space-y-2">
+                    <div class="flex justify-between text-base font-medium text-gray-900">
+                        <span>Subtotal</span>
+                        <span id="cart-subtotal">₹0</span>
+                    </div>
+                    <div class="flex justify-between text-sm text-green-600">
+                        <span>Delivery Charge</span>
+                        <span>FREE</span>
+                    </div>
+                    <div class="flex justify-between text-xl font-bold text-indigo-700 pt-2 border-t">
+                        <span>Total Amount</span>
+                        <span id="cart-total">₹0</span>
+                    </div>
+                </div>
+
+                <!-- Checkout Form -->
+                <form id="checkout-form" class="space-y-4 pt-4">
+                    <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">Delivery Details</h4>
+                    
+                    <div>
+                        <label for="customer-name" class="block text-sm font-medium text-gray-700">Full Name *</label>
+                        <input type="text" id="customer-name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
+                    </div>
+                    <div>
+                        <label for="customer-phone" class="block text-sm font-medium text-gray-700">Mobile Number *</label>
+                        <input type="tel" id="customer-phone" required pattern="[0-9]{10}" title="10-digit mobile number" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
+                    </div>
+                    <div>
+                        <label for="customer-address" class="block text-sm font-medium text-gray-700">Full Delivery Address *</label>
+                        <textarea id="customer-address" rows="3" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border"></textarea>
+                    </div>
+
+                    <div class="bg-indigo-50 p-3 rounded-lg flex items-center justify-between">
+                        <span class="text-sm font-medium text-indigo-800">Payment Method:</span>
+                        <span class="font-semibold text-indigo-900">Cash on Delivery (COD)</span>
+                    </div>
+                    
+                    <button type="submit" id="place-order-btn" class="w-full inline-flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out" disabled>
+                        Place Order (COD)
+                    </button>
+                </form>
+
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- Confirmation Modal (Hidden by default) -->
+    <div id="order-modal" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 transition-opacity opacity-0 pointer-events-none flex items-center justify-center p-4">
+        <div id="modal-content" class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md transform transition-transform scale-95">
+            
+            <div class="text-center">
+                <svg id="modal-icon" xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <h3 id="modal-title" class="mt-2 text-xl leading-6 font-medium text-gray-900">Order Placed Successfully!</h3>
+                <div class="mt-4 text-sm text-gray-500 text-left overflow-x-auto">
+                    <p class="font-semibold mb-2" id="modal-description">Your order details have been confirmed and will be processed soon.</p>
+                    <pre id="modal-details" class="bg-gray-100 p-3 rounded-lg overflow-x-auto text-xs text-gray-700"></pre>
+                </div>
+            </div>
+
+            <div class="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
+                <button type="button" id="copy-details-button" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm transition">
+                    Copy Details
+                </button>
+                <button type="button" id="close-modal-button" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm transition">
+                    Close
+                </button>
+            </div>
         </div>
-    </main>
-    
-    <!-- Status Bar -->
-    <footer id="status-bar" class="theme-bg flex-shrink-0 border-t border-blue-400 text-sm px-4 py-1 flex justify-between items-center text-white">
-        <div><span id="word-count">Word Count: 0</span></div><div>Page 1 of 1</div>
-    </footer>
+    </div>
 
-    <!-- All JavaScript logic is embedded here -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const editor = document.getElementById('editor');
-            
-            let savedRange = null;
 
-            const saveSelection = () => {
-                const selection = window.getSelection();
-                if (selection.getRangeAt && selection.rangeCount) {
-                    savedRange = selection.getRangeAt(0);
-                }
-            };
+    <!-- JavaScript Section -->
+    <script type="module">
+        // --- FIREBASE CONFIGURATION (MANDATORY) ---
+        // REPLACE THE PLACEHOLDERS BELOW with your actual Firebase project credentials.
+        const staticFirebaseConfig = {
+            apiKey: "AIzaSyC8OWYs1q-OL2NclpofPnJ2m21qU5cfCUc", 
+            authDomain: "edubooks-90e7e.firebaseapp.com",
+            projectId: "edubooks-90e7e",
+            storageBucket: "edubooks-90e7e.firebasestorage.app",
+            messagingSenderId: "365550668919",
+            appId: "1:365550668919:web:d8d7d978ad65132883ca72"
 
-            const restoreSelection = () => {
-                if (savedRange) {
-                    editor.focus();
-                    const selection = window.getSelection();
-                    selection.removeAllRanges();
-                    selection.addRange(savedRange);
-                }
-            };
+        };
+        
+        // Use the static config for local hosting
+        const firebaseConfig = staticFirebaseConfig;
+        const appId = firebaseConfig.projectId || 'default-app-id'; // Use project ID as app ID for simplicity
+        const apiKey = firebaseConfig.apiKey;
 
-            // --- Core Command Execution ---
-            const execCmd = (command, value = null) => {
-                document.execCommand(command, false, value);
-                editor.focus();
-                updateToolbarStates();
-            };
+        // --- FIREBASE IMPORTS ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, onSnapshot, collection, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // --- GLOBAL VARIABLES ---
+        let db;
+        let auth;
+        let currentUserId = null;
+        let cart = JSON.parse(localStorage.getItem('bookCart')) || [];
+        
+        // --- DOM REFERENCES ---
+        const userIdDisplay = document.getElementById('user-id-display');
+        const authAlert = document.getElementById('auth-alert');
+        const catalogGrid = document.getElementById('catalog-grid');
+        const cartItemsContainer = document.getElementById('cart-items');
+        const emptyCartMessage = document.getElementById('empty-cart-message');
+        const cartSubtotal = document.getElementById('cart-subtotal');
+        const cartTotal = document.getElementById('cart-total');
+        const placeOrderBtn = document.getElementById('place-order-btn');
+        const checkoutForm = document.getElementById('checkout-form');
+        const inquiryForm = document.getElementById('inquiry-form');
+        const submitInquiryBtn = document.getElementById('submit-inquiry-btn');
+        const orderModal = document.getElementById('order-modal');
+        const modalDetails = document.getElementById('modal-details');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDescription = document.getElementById('modal-description');
+        const modalIcon = document.getElementById('modal-icon');
+        const cartCount = document.getElementById('cart-count');
+        
+        const historyTabs = {
+            orders: document.getElementById('tab-orders'),
+            inquiries: document.getElementById('tab-inquiries')
+        };
+        const historyLists = {
+            orders: document.getElementById('orders-list'),
+            inquiries: document.getElementById('inquiries-list')
+        };
 
-            // --- Toolbar & Controls Setup ---
-            document.querySelectorAll('.ribbon-btn[data-command]').forEach(button => {
-                button.addEventListener('click', () => execCmd(button.dataset.command));
-            });
-            document.getElementById('font-family').addEventListener('change', (e) => execCmd('fontName', e.target.value));
-            document.getElementById('font-size').addEventListener('change', (e) => {
-                const sizeMap = { '10':'1', '12':'2', '14':'3', '16':'4', '18':'5', '24':'6', '32':'7'};
-                execCmd('fontSize', sizeMap[e.target.value]);
-            });
-            document.getElementById('fore-color').addEventListener('input', (e) => execCmd('foreColor', e.target.value));
-            document.getElementById('back-color').addEventListener('input', (e) => execCmd('hiliteColor', e.target.value));
-            document.getElementById('insert-link').addEventListener('click', () => {
-                saveSelection();
-                const url = prompt("Enter link URL:", "https://");
-                restoreSelection();
-                if (url) execCmd('createLink', url);
-            });
-            document.getElementById('insert-image').addEventListener('click', () => {
-                saveSelection();
-                const url = prompt("Enter image URL:");
-                restoreSelection();
-                if (url) execCmd('insertImage', url);
-            });
-            document.getElementById('print-btn').addEventListener('click', () => window.print());
-            document.getElementById('download-btn').addEventListener('click', () => {
-                const title = document.querySelector('#editor h1')?.innerText || 'document';
-                const blob = new Blob([editor.innerHTML], { type: 'text/html' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `${title.trim().replace(/\s+/g, '_')}.html`;
-                a.click();
-            });
+        // --- MOCK DATA ---
+        const BOOKS = [
+            { id: 'math101', name: 'Advanced Calculus', price: 650, author: 'Dr. A. Sharma', year: 2023, image: `https://placehold.co/100x150/4F46E5/ffffff?text=Math` },
+            { id: 'phy202', name: 'Quantum Mechanics', price: 920, author: 'Prof. J. Singh', year: 2022, image: `https://placehold.co/100x150/10B981/ffffff?text=Physics` },
+            { id: 'hist303', name: 'Ancient Civilizations', price: 480, author: 'S. K. Gupta', year: 2021, image: `https://placehold.co/100x150/F59E0B/ffffff?text=History` },
+            { id: 'cs404', name: 'Data Structures in C++', price: 790, author: 'P. V. Kumar', year: 2023, image: `https://placehold.co/100x150/EF4444/ffffff?text=CS` }
+        ];
 
-            // --- Word Count ---
-            const updateWordCount = () => {
-                const text = editor.innerText || editor.textContent;
-                const words = text.trim().split(/\s+/).filter(word => word.length > 0);
-                document.getElementById('word-count').textContent = `Word Count: ${words.length}`;
-            };
-
-            // --- Toolbar State Updates ---
-            const updateToolbarStates = () => {
-                document.querySelectorAll('.ribbon-btn[data-command]').forEach(button => {
-                    button.classList.toggle('active', document.queryCommandState(button.dataset.command));
-                });
-                // Additional state updates for selects can be added here
-            };
-
-            // --- Table Functionality ---
-            const tableCreator = document.getElementById('table-creator');
-            const tableTools = document.getElementById('table-tools');
-            const tableDropdown = document.querySelector('.dropdown');
-            let currentCell = null;
-
-            tableDropdown.addEventListener('mousedown', saveSelection);
-
-            for (let i = 0; i < 100; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'table-cell-selector';
-                cell.dataset.row = Math.floor(i / 10) + 1;
-                cell.dataset.col = (i % 10) + 1;
-                tableCreator.appendChild(cell);
+        // --- FIREBASE INITIALIZATION & AUTHENTICATION ---
+        try {
+            // CRITICAL CHECK: Ensure placeholders are replaced when running locally
+            if (firebaseConfig.apiKey.includes("YOUR_API_KEY_HERE") || firebaseConfig.projectId.includes("YOUR_PROJECT_ID_HERE")) {
+                const placeholderError = "CRITICAL ERROR: Firebase configuration placeholders are still present. You MUST replace 'YOUR_API_KEY_HERE' and other values with your actual Firebase project credentials for the app to work locally.";
+                console.error(placeholderError);
+                authAlert.textContent = placeholderError;
+                authAlert.classList.remove('hidden');
+                throw new Error("Missing Firebase Credentials"); // Stop execution
             }
 
-            tableCreator.addEventListener('mouseover', e => {
-                if (e.target.classList.contains('table-cell-selector')) {
-                    const rows = e.target.dataset.row;
-                    const cols = e.target.dataset.col;
-                    document.getElementById('table-creator-info').textContent = `${rows} x ${cols}`;
-                    document.querySelectorAll('.table-cell-selector').forEach(cell => {
-                        cell.classList.toggle('selected', cell.dataset.row <= rows && cell.dataset.col <= cols);
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            // Set persistence to local so anonymous user stays logged in
+            setPersistence(auth, browserLocalPersistence);
+
+            // Check if a custom token is available (from Canvas environment)
+            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    currentUserId = user.uid;
+                    userIdDisplay.textContent = currentUserId;
+                    authAlert.classList.add('hidden');
+                    console.log('Firebase Authentication Success. User ID:', currentUserId);
+                    
+                    // Start real-time listeners once authenticated
+                    startHistoryListeners();
+                } else if (initialAuthToken) {
+                    // Sign in with custom token if available (Canvas environment)
+                    await signInWithCustomToken(auth, initialAuthToken).catch(error => {
+                        console.error("Custom Token Sign-in Failed:", error);
+                        // Fallback to anonymous sign-in on custom token failure
+                        attemptAnonymousSignIn();
                     });
-                }
-            });
-
-            tableCreator.addEventListener('click', e => {
-                if (e.target.classList.contains('table-cell-selector')) {
-                    const rows = e.target.dataset.row;
-                    const cols = e.target.dataset.col;
-                    let tableHTML = '<table><tbody>';
-                    for(let r=0; r<rows; r++) {
-                        tableHTML += '<tr>';
-                        for(let c=0; c<cols; c++) {
-                            tableHTML += '<td><br></td>';
-                        }
-                        tableHTML += '</tr>';
-                    }
-                    tableHTML += '</tbody></table>';
-                    restoreSelection();
-                    execCmd('insertHTML', tableHTML);
-                    document.querySelector('.dropdown-content').style.display = 'none';
-                    setTimeout(() => document.querySelector('.dropdown-content').style.display = '', 100);
+                } else {
+                    // Attempt anonymous sign-in for local or external hosting
+                    attemptAnonymousSignIn();
                 }
             });
             
-            const getTableElements = () => {
-                if (!currentCell) return null;
-                const row = currentCell.closest('tr');
-                const table = currentCell.closest('table');
-                if (!row || !table) return null;
-                return { cell: currentCell, row, table, rowIndex: row.rowIndex, cellIndex: currentCell.cellIndex };
-            };
+        } catch (error) {
+            if (error.message !== "Missing Firebase Credentials") {
+                console.error("Firebase Initialization Failed:", error);
+                authAlert.classList.remove('hidden');
+                authAlert.textContent = `FATAL ERROR: Initialization failed. Check console and config.`;
+            }
+        }
 
-            document.getElementById('table-add-row-above').addEventListener('click', () => {
-                const els = getTableElements();
-                if(!els) return;
-                const newRow = els.table.insertRow(els.rowIndex);
-                for(let i=0; i<els.row.cells.length; i++) newRow.insertCell(i).innerHTML = "<br>";
-            });
-             document.getElementById('table-add-row-below').addEventListener('click', () => {
-                const els = getTableElements();
-                if(!els) return;
-                const newRow = els.table.insertRow(els.rowIndex + 1);
-                for(let i=0; i<els.row.cells.length; i++) newRow.insertCell(i).innerHTML = "<br>";
-            });
-            document.getElementById('table-add-col-left').addEventListener('click', () => {
-                const els = getTableElements();
-                if(!els) return;
-                for(let row of els.table.rows) row.insertCell(els.cellIndex).innerHTML = "<br>";
-            });
-            document.getElementById('table-add-col-right').addEventListener('click', () => {
-                const els = getTableElements();
-                if(!els) return;
-                for(let row of els.table.rows) row.insertCell(els.cellIndex + 1).innerHTML = "<br>";
-            });
-            document.getElementById('table-delete-row').addEventListener('click', () => {
-                const els = getTableElements();
-                if(els) els.table.deleteRow(els.rowIndex);
-            });
-            document.getElementById('table-delete-col').addEventListener('click', () => {
-                const els = getTableElements();
-                if(!els) return;
-                for(let row of els.table.rows) row.deleteCell(els.cellIndex);
-            });
-            document.getElementById('table-delete-table').addEventListener('click', () => {
-                const els = getTableElements();
-                if(els) els.table.remove();
-                tableTools.style.display = 'none';
-            });
-            
+        async function attemptAnonymousSignIn() {
+             userIdDisplay.textContent = 'Signing In...';
+             try {
+                await signInAnonymously(auth);
+                // onAuthStateChanged handler will pick up the successful sign-in
+             } catch(error) {
+                console.error("Anonymous Sign-in Failed:", error);
+                userIdDisplay.textContent = 'Auth Failed';
+                authAlert.classList.remove('hidden');
+                authAlert.textContent = `FATAL ERROR: Authentication failed (${error.code}). Check your Firebase Config and ensure Anonymous Auth is enabled.`;
+             }
+        }
 
-            // --- Speech to Text Functionality ---
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            const speechBtn = document.getElementById('speech-btn');
-            let recognition;
 
-            if (SpeechRecognition) {
-                recognition = new SpeechRecognition();
-                recognition.continuous = true;
-                recognition.interimResults = true;
-                let isListening = false;
-                let finalTranscript = '';
+        // --- RENDERING FUNCTIONS ---
 
-                recognition.onresult = event => {
-                    let interimTranscript = '';
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        if (event.results[i].isFinal) {
-                            finalTranscript += event.results[i][0].transcript;
-                        } else {
-                            interimTranscript += event.results[i][0].transcript;
-                        }
-                    }
-                    // Insert final part into editor
-                    if(finalTranscript) {
-                        execCmd('insertText', finalTranscript);
-                        finalTranscript = '';
-                    }
-                };
+        function renderCatalog() {
+            catalogGrid.innerHTML = BOOKS.map(book => `
+                <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition duration-300 overflow-hidden border border-gray-100 p-4 flex flex-col justify-between">
+                    <div class="flex items-center space-x-4 mb-4">
+                        <img src="${book.image}" alt="${book.name}" class="w-16 h-24 object-cover rounded-md shadow-inner">
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-gray-800">${book.name}</h3>
+                            <p class="text-sm text-gray-500">${book.author} (${book.year})</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-between items-end">
+                        <span class="text-xl font-bold text-indigo-600">₹${book.price.toFixed(2)}</span>
+                        <button onclick="addToCart('${book.id}')" class="flex items-center space-x-1 py-2 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-150 ease-in-out text-sm font-medium shadow-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                            <span>Add</span>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.addToCart = function(bookId) {
+            const book = BOOKS.find(b => b.id === bookId);
+            if (book) {
+                const existingItem = cart.find(item => item.id === bookId);
+                if (existingItem) {
+                    existingItem.quantity += 1;
+                } else {
+                    cart.push({ ...book, quantity: 1 });
+                }
+                updateCartDisplay();
                 
-                speechBtn.addEventListener('click', () => {
-                    isListening = !isListening;
-                    if (isListening) {
-                        recognition.lang = document.getElementById('speech-lang').value;
-                        recognition.start();
-                        speechBtn.classList.add('listening');
-                        speechBtn.title = 'Stop Dictation';
-                    } else {
-                        recognition.stop();
-                        speechBtn.classList.remove('listening');
-                        speechBtn.title = 'Start Dictation';
-                    }
-                });
-                 recognition.onend = () => {
-                    if (isListening) recognition.start(); // Keep listening if not manually stopped
-                 };
-            } else {
-                speechBtn.disabled = true;
-                document.getElementById('speech-lang').style.display = 'none';
-                console.log("Speech Recognition not supported in this browser.");
+                // Show a confirmation bubble (optional: using the modal as a temporary message box)
+                showTemporaryMessage(`${book.name} added to cart!`);
+            }
+        };
+
+        window.removeFromCart = function(bookId) {
+            const index = cart.findIndex(item => item.id === bookId);
+            if (index > -1) {
+                cart.splice(index, 1);
+                updateCartDisplay();
+            }
+        };
+
+        function updateCartDisplay() {
+            localStorage.setItem('bookCart', JSON.stringify(cart));
+            cartItemsContainer.innerHTML = '';
+            
+            const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            const total = subtotal; // Delivery is free
+
+            cartSubtotal.textContent = `₹${subtotal.toFixed(2)}`;
+            cartTotal.textContent = `₹${total.toFixed(2)}`;
+            cartCount.textContent = cart.length;
+
+            if (cart.length === 0) {
+                emptyCartMessage.classList.remove('hidden');
+                placeOrderBtn.disabled = true;
+                return;
+            }
+            
+            emptyCartMessage.classList.add('hidden');
+            placeOrderBtn.disabled = false; // Enabled by cart size, further checked by form validation
+
+            cart.forEach(item => {
+                const itemElement = document.createElement('div');
+                itemElement.className = 'flex justify-between items-center py-2 border-b last:border-b-0';
+                itemElement.innerHTML = `
+                    <div class="flex-1 pr-4">
+                        <p class="font-medium text-gray-800">${item.name}</p>
+                        <p class="text-sm text-gray-500">₹${item.price} x ${item.quantity}</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="font-semibold text-indigo-600">₹${(item.price * item.quantity).toFixed(2)}</span>
+                        <button onclick="removeFromCart('${item.id}')" class="p-1 text-red-500 hover:text-red-700 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                    </div>
+                `;
+                cartItemsContainer.appendChild(itemElement);
+            });
+        }
+        
+        // Function to display a confirmation message modal
+        function showConfirmationModal(title, description, details) {
+            modalTitle.textContent = title;
+            modalDescription.textContent = description;
+            modalDetails.textContent = details;
+            
+            // Set icon based on success
+            modalIcon.classList.remove('text-red-500');
+            modalIcon.classList.add('text-green-500');
+            modalIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />`;
+
+            orderModal.classList.remove('opacity-0', 'pointer-events-none');
+            orderModal.querySelector('div').classList.remove('scale-95');
+        }
+
+        function showTemporaryMessage(message) {
+            // A quick, minimal use of the modal for simple feedback
+            modalTitle.textContent = 'Success!';
+            modalDescription.textContent = message;
+            modalDetails.textContent = '';
+            modalIcon.classList.add('text-green-500');
+            modalIcon.classList.remove('text-red-500');
+            modalIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />`;
+
+            document.getElementById('copy-details-button').classList.add('hidden');
+            document.getElementById('close-modal-button').classList.remove('sm:col-start-1', 'sm:col-span-2');
+            document.getElementById('close-modal-button').classList.add('sm:col-span-2');
+
+            orderModal.classList.remove('opacity-0', 'pointer-events-none');
+            orderModal.querySelector('div').classList.remove('scale-95');
+
+            setTimeout(() => {
+                orderModal.classList.add('opacity-0', 'pointer-events-none');
+                orderModal.querySelector('div').classList.add('scale-95');
+                // Reset buttons for future use
+                document.getElementById('copy-details-button').classList.remove('hidden');
+                document.getElementById('close-modal-button').classList.add('sm:col-start-1');
+                document.getElementById('close-modal-button').classList.remove('sm:col-span-2');
+            }, 1500);
+        }
+
+
+        // --- HISTORY RENDERING ---
+
+        function renderHistory(listElement, data, type) {
+            listElement.innerHTML = '';
+            if (data.length === 0) {
+                listElement.innerHTML = `<p class="text-gray-500 italic">No previous ${type.toLowerCase()} found.</p>`;
+                return;
             }
 
-            // --- Editor Event Listeners ---
-            const manageContextualMenus = () => {
-                 const selection = window.getSelection();
-                if (!selection.rangeCount) return;
-                const node = selection.getRangeAt(0).startContainer;
-                const parentCell = node.nodeType === 3 ? node.parentNode.closest('td, th') : node.closest('td, th');
-                
-                if(parentCell) {
-                    currentCell = parentCell;
-                    tableTools.style.display = 'flex';
-                } else {
-                    currentCell = null;
-                    tableTools.style.display = 'none';
-                }
-            };
+            data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-            editor.addEventListener('input', updateWordCount);
-            editor.addEventListener('keyup', updateToolbarStates);
-            editor.addEventListener('mouseup', updateToolbarStates);
-            document.addEventListener('selectionchange', () => {
-                updateToolbarStates();
-                manageContextualMenus();
+            data.forEach(item => {
+                let details;
+                let title;
+                let statusColor = item.status === 'Pending' || item.status === 'New' ? 'text-yellow-600 bg-yellow-100' : 'text-green-600 bg-green-100';
+
+                if (type === 'Orders') {
+                    title = `Order #${item.id.substring(0, 8)}`;
+                    details = `Total: ₹${item.totalAmount.toFixed(2)} | Items: ${item.items.length}`;
+                } else { // Inquiries
+                    title = `Inquiry for: ${item.bookName}`;
+                    details = `Contact: ${item.phone} | Address: ${item.address.substring(0, 30)}...`;
+                }
+
+                listElement.innerHTML += `
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <div class="flex justify-between items-center mb-1">
+                            <p class="font-semibold text-gray-800">${title}</p>
+                            <span class="text-xs font-medium px-2 py-0.5 rounded-full ${statusColor}">
+                                ${item.status}
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-600">${details}</p>
+                        <p class="text-xs text-gray-400 mt-1">Submitted: ${new Date(item.timestamp).toLocaleString()}</p>
+                    </div>
+                `;
+            });
+        }
+
+
+        // --- FIREBASE LISTENERS ---
+
+        function startHistoryListeners() {
+            if (!db || !currentUserId) return;
+
+            // Ensure to use the correct public path for collaborative apps
+            const ordersCollectionRef = collection(db, `artifacts/${appId}/public/data/orders`);
+            const ordersQuery = query(ordersCollectionRef, where("userId", "==", currentUserId));
+            
+            // Listen for user's orders
+            onSnapshot(ordersQuery, (snapshot) => {
+                const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderHistory(historyLists.orders, orders, 'Orders');
+            }, (error) => {
+                console.error("Error listening to orders:", error);
             });
 
-            // Initial calls
-            updateWordCount();
-            editor.focus();
+            // Ensure to use the correct public path for collaborative apps
+            const inquiriesCollectionRef = collection(db, `artifacts/${appId}/public/data/inquiries`);
+            const inquiriesQuery = query(inquiriesCollectionRef, where("userId", "==", currentUserId));
+            
+            // Listen for user's inquiries
+            onSnapshot(inquiriesQuery, (snapshot) => {
+                const inquiries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderHistory(historyLists.inquiries, inquiries, 'Inquiries');
+            }, (error) => {
+                console.error("Error listening to inquiries:", error);
+            });
+        }
+
+
+        // --- FORM SUBMISSION HANDLERS ---
+
+        async function saveOrder(orderData) {
+            if (!currentUserId) {
+                console.error("Cannot save order: User not authenticated.");
+                showConfirmationModal("Submission Failed", "Authentication Error: Please check your Firebase setup. Cannot submit order without a valid User ID.", JSON.stringify(orderData, null, 2));
+                return;
+            }
+
+            placeOrderBtn.textContent = 'Saving Order...';
+            placeOrderBtn.disabled = true;
+
+            const finalOrderData = {
+                ...orderData,
+                userId: currentUserId,
+                timestamp: new Date().toISOString(), // Use ISO string for reliable sorting/storage
+                status: 'Pending',
+                paymentMethod: 'Cash on Delivery (COD)'
+            };
+
+            try {
+                // Use the correct public path
+                const docRef = await addDoc(collection(db, `artifacts/${appId}/public/data/orders`), finalOrderData);
+                console.log("Order submitted successfully. Doc ID:", docRef.id);
+
+                showConfirmationModal(
+                    "Order Placed Successfully!", 
+                    `Your order (ID: ${docRef.id.substring(0, 8)}) has been confirmed. You chose COD.`, 
+                    JSON.stringify(finalOrderData, null, 2)
+                );
+                
+                // Clear cart and reset form
+                cart = [];
+                updateCartDisplay();
+                checkoutForm.reset();
+
+            } catch (e) {
+                console.error("Error adding document to Firestore:", e);
+                // The most common error here is a Security Rule violation (Permission Denied)
+                showConfirmationModal(
+                    "Submission Failed (Firestore Error)", 
+                    `Could not save the document. This is often due to an invalid Firebase Security Rule (Error: ${e.code || e.message}).`, 
+                    JSON.stringify(finalOrderData, null, 2)
+                );
+            } finally {
+                placeOrderBtn.textContent = 'Place Order (COD)';
+                placeOrderBtn.disabled = false;
+            }
+        }
+        
+        async function saveInquiry(inquiryData) {
+            if (!currentUserId) {
+                console.error("Cannot save inquiry: User not authenticated.");
+                showConfirmationModal("Submission Failed", "Authentication Error: Please check your Firebase setup. Cannot submit inquiry without a valid User ID.", JSON.stringify(inquiryData, null, 2));
+                return;
+            }
+
+            submitInquiryBtn.textContent = 'Saving Inquiry...';
+            submitInquiryBtn.disabled = true;
+
+            const finalInquiryData = {
+                ...inquiryData,
+                userId: currentUserId,
+                timestamp: new Date().toISOString(),
+                status: 'New'
+            };
+
+            try {
+                // Use the correct public path
+                const docRef = await addDoc(collection(db, `artifacts/${appId}/public/data/inquiries`), finalInquiryData);
+                console.log("Inquiry submitted successfully. Doc ID:", docRef.id);
+
+                showConfirmationModal(
+                    "Inquiry Submitted Successfully!", 
+                    `Your inquiry (ID: ${docRef.id.substring(0, 8)}) has been recorded. We will contact you at ${inquiryData.phone}.`, 
+                    JSON.stringify(finalInquiryData, null, 2)
+                );
+                inquiryForm.reset();
+
+            } catch (e) {
+                console.error("Error adding inquiry to Firestore:", e);
+                // The most common error here is a Security Rule violation (Permission Denied)
+                showConfirmationModal(
+                    "Submission Failed (Firestore Error)", 
+                    `Could not save the inquiry. This is often due to an invalid Firebase Security Rule (Error: ${e.code || e.message}).`, 
+                    JSON.stringify(finalInquiryData, null, 2)
+                );
+            } finally {
+                submitInquiryBtn.textContent = 'Submit Inquiry';
+                submitInquiryBtn.disabled = false;
+            }
+        }
+
+        checkoutForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Ensure cart is not empty and form is valid
+            if (cart.length === 0 || !checkoutForm.checkValidity()) {
+                // Using custom UI instead of alert() would be better, but simplified here.
+                showConfirmationModal("Missing Information", "Please add items to your cart and fill out all required delivery fields.", "");
+                return;
+            }
+
+            const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+            const orderData = {
+                name: document.getElementById('customer-name').value,
+                phone: document.getElementById('customer-phone').value,
+                address: document.getElementById('customer-address').value,
+                items: cart.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity })),
+                totalAmount: totalAmount,
+            };
+
+            saveOrder(orderData);
         });
+
+        inquiryForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Ensure form is valid
+            if (!inquiryForm.checkValidity()) {
+                return;
+            }
+
+            const inquiryData = {
+                bookName: document.getElementById('inquiry-book-name').value,
+                phone: document.getElementById('inquiry-phone').value,
+                address: document.getElementById('inquiry-address').value
+            };
+
+            saveInquiry(inquiryData);
+        });
+        
+        // --- UTILITY HANDLERS ---
+        
+        // Tab switching logic for history
+        historyTabs.orders.addEventListener('click', () => {
+            historyTabs.orders.classList.add('tab-active');
+            historyTabs.inquiries.classList.remove('tab-active', 'text-gray-500');
+            historyLists.orders.classList.remove('hidden');
+            historyLists.inquiries.classList.add('hidden');
+        });
+
+        historyTabs.inquiries.addEventListener('click', () => {
+            historyTabs.inquiries.classList.add('tab-active');
+            historyTabs.orders.classList.remove('tab-active', 'text-gray-500');
+            historyLists.inquiries.classList.remove('hidden');
+            historyLists.orders.classList.add('hidden');
+        });
+
+        document.getElementById('copy-details-button').addEventListener('click', () => {
+            try {
+                navigator.clipboard.writeText(modalDetails.textContent);
+                document.getElementById('copy-details-button').textContent = 'Copied!';
+                setTimeout(() => {
+                    document.getElementById('copy-details-button').textContent = 'Copy Details';
+                }, 2000);
+            } catch (err) {
+                 // Fallback for environments where clipboard API is restricted
+                 const textArea = document.createElement("textarea");
+                 textArea.value = modalDetails.textContent;
+                 document.body.appendChild(textArea);
+                 textArea.focus();
+                 textArea.select();
+                 try {
+                    document.execCommand('copy');
+                    document.getElementById('copy-details-button').textContent = 'Copied!';
+                    setTimeout(() => {
+                        document.getElementById('copy-details-button').textContent = 'Copy Details';
+                    }, 2000);
+                 } catch (err) {
+                    // Using custom UI instead of alert() would be better, but simplified here.
+                    showConfirmationModal("Copy Failed", "Your browser does not support automatic copying. Please manually select and copy the details from the box above.", "");
+                 }
+                 document.body.removeChild(textArea);
+            }
+        });
+
+        // --- MOBILE CART HANDLERS ---
+        
+        const cartContainer = document.getElementById('cart-container');
+        const cartButton = document.getElementById('cart-button');
+        const closeCartButton = document.getElementById('close-cart-button');
+        const closeModalButton = document.getElementById('close-modal-button');
+        
+        const hideMobileCart = () => {
+             cartContainer.classList.add('opacity-0', 'pointer-events-none');
+             cartContainer.querySelector('div').classList.remove('translate-x-0');
+             cartContainer.querySelector('div').classList.add('translate-x-full');
+        };
+
+        const showMobileCart = () => {
+             cartContainer.classList.remove('opacity-0', 'pointer-events-none');
+             cartContainer.querySelector('div').classList.remove('translate-x-full');
+             cartContainer.querySelector('div').classList.add('translate-x-0');
+        };
+
+        // Event Listeners for mobile cart and modal
+        cartButton.addEventListener('click', showMobileCart);
+        closeCartButton.addEventListener('click', hideMobileCart);
+        cartContainer.addEventListener('click', (e) => {
+            if (e.target === cartContainer && window.innerWidth < 1024) {
+                hideMobileCart();
+            }
+        });
+        
+        closeModalButton.addEventListener('click', () => {
+            orderModal.classList.add('opacity-0', 'pointer-events-none');
+            orderModal.querySelector('div').classList.add('scale-95');
+        });
+
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            renderCatalog();
+            updateCartDisplay();
+            // startHistoryListeners is now called inside onAuthStateChanged
+        };
+
     </script>
 </body>
 </html>
-
-
