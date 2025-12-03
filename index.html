@@ -2,770 +2,1085 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Educational Book Store - COD & Firebase</title>
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pro Teaching Whiteboard v3</title>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Custom styles and font setting */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f7f9fb;
+        :root {
+            --primary-color: #4a90e2;
+            --toolbar-bg: #ffffff;
+            --toolbar-text: #555555; /* Default icon color */
+            --toolbar-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            --active-tool-bg: #e6f0fa;
+            --active-tool-text: #4a90e2;
         }
-        .container-padding {
-            padding: 1rem; /* Default for mobile */
+
+        * {
+            box-sizing: border-box;
+            user-select: none; /* Prevent selection while drawing */
+            -webkit-user-select: none;
+            touch-action: none; /* Prevent default touch actions like scrolling */
         }
-        @media (min-width: 640px) {
-            .container-padding {
-                padding: 2rem;
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f0f0;
+        }
+
+        /* --- Canvas Container --- */
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+            background-color: white;
+            overflow: hidden;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: block;
+        }
+
+        /* --- UI Overlay --- */
+        .ui-layer {
+            position: absolute;
+            z-index: 100;
+            pointer-events: none; /* Let clicks pass through to canvas where not on buttons */
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+        }
+
+        /* --- Toolbar (Left Side) --- */
+        .toolbar {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--toolbar-bg);
+            padding: 8px;
+            border-radius: 12px;
+            box-shadow: var(--toolbar-shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: auto;
+            max-height: 90vh;
+            overflow-y: auto;
+            transition: background-color 0.3s;
+        }
+
+        /* --- Tool Groups --- */
+        .tool-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(0,0,0,0.1); /* Transparent border for dark mode compat */
+        }
+        .tool-group:last-child {
+            border-bottom: none;
+        }
+
+        .tool-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--toolbar-text); /* Use variable for theming */
+            font-size: 1.2rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .tool-btn:hover {
+            background-color: rgba(0,0,0,0.05); /* Subtle hover effect */
+            color: var(--primary-color);
+        }
+
+        .tool-btn.active {
+            background-color: var(--active-tool-bg);
+            color: var(--active-tool-text);
+            font-weight: bold;
+        }
+
+        /* Tooltip for desktop */
+        .tool-btn::after {
+            content: attr(data-title);
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            margin-left: 10px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 1000;
+        }
+        
+        @media (hover: hover) {
+            .tool-btn:hover::after {
+                opacity: 1;
             }
         }
-        /* Custom scrollbar for better look */
-        .overflow-y-scroll::-webkit-scrollbar {
-            width: 6px;
+
+        /* --- Properties Bar (Top) --- */
+        .properties-bar {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--toolbar-bg);
+            padding: 8px 16px;
+            border-radius: 12px;
+            box-shadow: var(--toolbar-shadow);
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: background-color 0.3s;
+            color: var(--toolbar-text);
         }
-        .overflow-y-scroll::-webkit-scrollbar-thumb {
-            background-color: #a8a8a8;
-            border-radius: 3px;
+
+        .color-picker-wrapper {
+            display: flex;
+            gap: 5px;
         }
-        .tab-active {
-            border-bottom: 2px solid #4F46E5;
-            color: #4F46E5;
+
+        .color-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform 0.1s;
         }
-        /* Mobile Cart Styles */
-        #cart-container {
-            transition: opacity 0.3s ease-in-out;
+        .color-swatch:hover { transform: scale(1.1); }
+        .color-swatch.active { border-color: var(--toolbar-text); transform: scale(1.1); box-shadow: 0 0 4px rgba(0,0,0,0.3); }
+
+        .line-width-slider {
+            width: 100px;
+            cursor: pointer;
         }
-        #cart-content {
-            transition: transform 0.3s ease-in-out;
+
+        /* --- Action Bar (Bottom Right) --- */
+        .action-bar {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
         }
+
+        .action-btn {
+            background: var(--toolbar-bg);
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            box-shadow: var(--toolbar-shadow);
+            cursor: pointer;
+            color: var(--toolbar-text);
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s;
+        }
+        
+        .action-btn:active { transform: scale(0.95); }
+        .action-btn.danger { color: #e74c3c; }
+        .action-btn.success { color: #2ecc71; }
+
+        /* --- Floating Windows (Settings/Text Input) --- */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            z-index: 200;
+            pointer-events: auto;
+            min-width: 320px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal h3 { margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .modal h4 { margin: 15px 0 5px 0; color: #666; font-size: 14px; text-transform: uppercase; }
+        
+        .bg-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .bg-option {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            color: #333; /* Modal always white bg, so text dark */
+        }
+        .bg-option:hover { background: #f9f9f9; }
+        .bg-option.active { border-color: var(--primary-color); background: #e6f0fa; color: var(--primary-color); }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.3);
+            z-index: 199;
+            pointer-events: auto;
+        }
+
+        /* --- Text Input Helper --- */
+        #text-input-box {
+            position: absolute;
+            display: none;
+            z-index: 150;
+            background: transparent;
+            border: 1px dashed #333;
+            min-width: 100px;
+            pointer-events: auto;
+        }
+        #text-input-box textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: rgba(255,255,255,0.8);
+            font-family: inherit;
+            font-size: 20px;
+            color: inherit;
+            resize: both;
+            overflow: hidden;
+            outline: none;
+            padding: 5px;
+        }
+        #text-finish-btn {
+            position: absolute;
+            bottom: -35px;
+            right: 0;
+            background: #2ecc71;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        /* Custom Color Input Styling */
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            padding: 0;
+            background: none;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 4px;
+        }
+
+        /* --- Mobile Adaptations --- */
+        @media (max-width: 600px) {
+            .toolbar {
+                left: 0;
+                top: auto;
+                bottom: 0;
+                transform: none;
+                width: 100%;
+                flex-direction: row;
+                border-radius: 12px 12px 0 0;
+                justify-content: space-around;
+                padding: 10px 5px;
+                max-height: 60px;
+                overflow-x: auto;
+            }
+            .tool-group {
+                flex-direction: row;
+                border-bottom: none;
+                border-right: 1px solid rgba(0,0,0,0.1);
+                padding-bottom: 0;
+                padding-right: 5px;
+            }
+            .tool-group:last-child { border-right: none; }
+            
+            .properties-bar {
+                width: 95%;
+                justify-content: space-between;
+                top: 10px;
+                padding: 5px 10px;
+            }
+            
+            .action-bar {
+                top: 60px;
+                right: 10px;
+                flex-direction: column;
+                bottom: auto;
+            }
+            
+            .line-width-slider { width: 60px; }
+            .modal { width: 90%; }
+        }
+
+        /* Hidden file input */
+        #image-upload { display: none; }
+
     </style>
 </head>
-<body class="min-h-screen">
+<body>
 
-    <!-- Authentication Status Alert Banner -->
-    <div id="auth-alert" class="hidden fixed top-0 left-0 right-0 z-50 p-3 text-center bg-red-600 text-white font-semibold rounded-b-lg shadow-xl">
-        Authentication Error: Please check your Firebase Console setup and config values.
-    </div>
-
-    <!-- Main Header -->
-    <header class="bg-white shadow-md sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto container-padding flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-indigo-600">EduBook Store (COD)</h1>
-            <div class="flex items-center space-x-4">
-                <div class="text-sm hidden sm:block text-gray-600 truncate">
-                    User ID: <span id="user-id-display" class="font-mono text-xs font-semibold text-gray-800">Signing In...</span>
-                </div>
-                <button id="cart-button" class="relative p-2 rounded-full bg-indigo-100 text-indigo-600 hover:bg-indigo-200 transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <span id="cart-count" class="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">0</span>
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Content Layout (Desktop) -->
-    <div class="max-w-7xl mx-auto flex flex-col lg:flex-row container-padding gap-6">
-
-        <!-- Left Column: Catalog, Inquiry Form, History -->
-        <main class="lg:w-2/3 flex-grow space-y-8">
-            
-            <!-- Book Catalog -->
-            <section id="catalog-section">
-                <h2 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-2">Educational Book Catalog</h2>
-                <div id="catalog-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <!-- Catalog items will be injected here -->
-                </div>
-            </section>
-
-            <!-- Book Inquiry / Request Form -->
-            <section id="inquiry-section" class="bg-white p-6 rounded-xl shadow-lg border border-indigo-100">
-                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 text-indigo-700">Book Inquiry / Request Form</h2>
-                <p class="text-sm text-gray-500 mb-4">Can't find a book? Submit a request here. We will contact you soon!</p>
-                
-                <form id="inquiry-form" class="space-y-4">
-                    <div>
-                        <label for="inquiry-book-name" class="block text-sm font-medium text-gray-700">Book Name / Topic *</label>
-                        <input type="text" id="inquiry-book-name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border">
-                    </div>
-                    <div>
-                        <label for="inquiry-phone" class="block text-sm font-medium text-gray-700">Mobile Number *</label>
-                        <input type="tel" id="inquiry-phone" required pattern="[0-9]{10}" title="10-digit mobile number" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border">
-                    </div>
-                    <div>
-                        <label for="inquiry-address" class="block text-sm font-medium text-gray-700">Address for Contact *</label>
-                        <textarea id="inquiry-address" rows="3" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border"></textarea>
-                    </div>
-                    <button type="submit" id="submit-inquiry-btn" class="w-full inline-flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out">
-                        Submit Inquiry
-                    </button>
-                </form>
-            </section>
-
-            <!-- Order/Inquiry History -->
-            <section id="history-section" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Your History</h2>
-                <div class="flex border-b mb-4">
-                    <button id="tab-orders" class="px-4 py-2 text-sm font-medium transition duration-150 ease-in-out tab-active">Your Orders</button>
-                    <button id="tab-inquiries" class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition duration-150 ease-in-out">Your Inquiries</button>
-                </div>
-                
-                <div id="orders-list" class="space-y-4">
-                    <!-- History list for Orders -->
-                    <p class="text-gray-500 italic">No previous orders found.</p>
-                </div>
-                
-                <div id="inquiries-list" class="space-y-4 hidden">
-                    <!-- History list for Inquiries -->
-                    <p class="text-gray-500 italic">No previous inquiries found.</p>
-                </div>
-            </section>
-
-        </main>
-
-        <!-- Right Column: Cart and Checkout (Fixed Position on Desktop) -->
-        <aside id="cart-container" class="lg:w-1/3 fixed lg:sticky top-0 right-0 h-full lg:h-auto z-40 bg-gray-900 bg-opacity-50 lg:bg-transparent transition-opacity opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto">
-            <div id="cart-content" class="h-full w-full lg:w-auto transform translate-x-full lg:translate-x-0 bg-white p-6 rounded-l-xl lg:rounded-xl shadow-2xl lg:shadow-lg overflow-y-scroll space-y-6 lg:mt-[96px]">
-                
-                <div class="flex justify-between items-center pb-4 border-b">
-                    <h3 class="text-xl font-bold text-gray-800">Your Cart</h3>
-                    <button id="close-cart-button" class="lg:hidden p-2 rounded-full text-gray-500 hover:text-gray-700">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-
-                <!-- Cart Items List -->
-                <div id="cart-items" class="space-y-4">
-                    <p id="empty-cart-message" class="text-center text-gray-500 italic">Your cart is empty.</p>
-                    <!-- Cart items will be injected here -->
-                </div>
-
-                <!-- Summary -->
-                <div class="pt-4 border-t space-y-2">
-                    <div class="flex justify-between text-base font-medium text-gray-900">
-                        <span>Subtotal</span>
-                        <span id="cart-subtotal">₹0</span>
-                    </div>
-                    <div class="flex justify-between text-sm text-green-600">
-                        <span>Delivery Charge</span>
-                        <span>FREE</span>
-                    </div>
-                    <div class="flex justify-between text-xl font-bold text-indigo-700 pt-2 border-t">
-                        <span>Total Amount</span>
-                        <span id="cart-total">₹0</span>
-                    </div>
-                </div>
-
-                <!-- Checkout Form -->
-                <form id="checkout-form" class="space-y-4 pt-4">
-                    <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">Delivery Details</h4>
-                    
-                    <div>
-                        <label for="customer-name" class="block text-sm font-medium text-gray-700">Full Name *</label>
-                        <input type="text" id="customer-name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
-                    </div>
-                    <div>
-                        <label for="customer-phone" class="block text-sm font-medium text-gray-700">Mobile Number *</label>
-                        <input type="tel" id="customer-phone" required pattern="[0-9]{10}" title="10-digit mobile number" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
-                    </div>
-                    <div>
-                        <label for="customer-address" class="block text-sm font-medium text-gray-700">Full Delivery Address *</label>
-                        <textarea id="customer-address" rows="3" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border"></textarea>
-                    </div>
-
-                    <div class="bg-indigo-50 p-3 rounded-lg flex items-center justify-between">
-                        <span class="text-sm font-medium text-indigo-800">Payment Method:</span>
-                        <span class="font-semibold text-indigo-900">Cash on Delivery (COD)</span>
-                    </div>
-                    
-                    <button type="submit" id="place-order-btn" class="w-full inline-flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out" disabled>
-                        Place Order (COD)
-                    </button>
-                </form>
-
-            </div>
-        </aside>
-
-    </div>
-
-    <!-- Confirmation Modal (Hidden by default) -->
-    <div id="order-modal" class="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 transition-opacity opacity-0 pointer-events-none flex items-center justify-center p-4">
-        <div id="modal-content" class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md transform transition-transform scale-95">
-            
-            <div class="text-center">
-                <svg id="modal-icon" xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-                <h3 id="modal-title" class="mt-2 text-xl leading-6 font-medium text-gray-900">Order Placed Successfully!</h3>
-                <div class="mt-4 text-sm text-gray-500 text-left overflow-x-auto">
-                    <p class="font-semibold mb-2" id="modal-description">Your order details have been confirmed and will be processed soon.</p>
-                    <pre id="modal-details" class="bg-gray-100 p-3 rounded-lg overflow-x-auto text-xs text-gray-700"></pre>
-                </div>
-            </div>
-
-            <div class="mt-5 sm:mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3">
-                <button type="button" id="copy-details-button" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm transition">
-                    Copy Details
-                </button>
-                <button type="button" id="close-modal-button" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm transition">
-                    Close
-                </button>
-            </div>
+    <!-- Canvas Container -->
+    <div id="canvas-container">
+        <!-- Layer 1: Background Pattern (Grid/Lines) -->
+        <canvas id="bg-canvas"></canvas>
+        <!-- Layer 2: Main Drawing -->
+        <canvas id="main-canvas"></canvas>
+        <!-- Layer 3: Temporary (Preview shapes, Laser pointer) -->
+        <canvas id="temp-canvas"></canvas>
+        
+        <!-- Text Input Overlay -->
+        <div id="text-input-box">
+            <textarea placeholder="Type here..."></textarea>
+            <button id="text-finish-btn"><i class="fas fa-check"></i></button>
         </div>
     </div>
 
+    <!-- UI Overlay -->
+    <div class="ui-layer">
+        
+        <!-- Top: Properties -->
+        <div class="properties-bar">
+            <div class="color-picker-wrapper" id="color-palette">
+                <!-- Colors injected by JS -->
+            </div>
+            <div style="border-left: 1px solid rgba(0,0,0,0.2); height: 20px; margin: 0 5px;"></div>
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <i class="fas fa-circle" style="font-size: 6px;"></i>
+                <input type="range" min="1" max="20" value="3" class="line-width-slider" id="stroke-width">
+                <i class="fas fa-circle" style="font-size: 14px;"></i>
+            </div>
+        </div>
 
-    <!-- JavaScript Section -->
-    <script type="module">
-        // --- FIREBASE CONFIGURATION (MANDATORY) ---
-        // REPLACE THE PLACEHOLDERS BELOW with your actual Firebase project credentials.
-        const staticFirebaseConfig = {
-            apiKey: "AIzaSyC8OWYs1q-OL2NclpofPnJ2m21qU5cfCUc", 
-            authDomain: "edubooks-90e7e.firebaseapp.com",
-            projectId: "edubooks-90e7e",
-            storageBucket: "edubooks-90e7e.firebasestorage.app",
-            messagingSenderId: "365550668919",
-            appId: "1:365550668919:web:d8d7d978ad65132883ca72"
+        <!-- Left/Bottom: Toolbar -->
+        <div class="toolbar">
+            <div class="tool-group">
+                <button class="tool-btn active" data-tool="pen" data-title="Pen (Freehand)"><i class="fas fa-pen"></i></button>
+                <button class="tool-btn" data-tool="highlighter" data-title="Highlighter"><i class="fas fa-highlighter"></i></button>
+                <button class="tool-btn" data-tool="laser" data-title="Laser Pointer"><i class="fas fa-wand-magic-sparkles"></i></button>
+            </div>
+            <div class="tool-group">
+                <button class="tool-btn" data-tool="line" data-title="Straight Line"><i class="fas fa-slash"></i></button>
+                <button class="tool-btn" data-tool="rect" data-title="Rectangle"><i class="far fa-square"></i></button>
+                <button class="tool-btn" data-tool="circle" data-title="Circle"><i class="far fa-circle"></i></button>
+                <button class="tool-btn" data-tool="triangle" data-title="Triangle"><i class="fas fa-caret-up"></i></button>
+            </div>
+            <div class="tool-group">
+                <button class="tool-btn" data-tool="text" data-title="Text Box"><i class="fas fa-font"></i></button>
+                <button class="tool-btn" data-tool="eraser" data-title="Eraser"><i class="fas fa-eraser"></i></button>
+                <button class="tool-btn" id="btn-background" data-title="Settings & Theme"><i class="fas fa-cog"></i></button>
+            </div>
+            <div class="tool-group">
+                <!-- Touch Toggle Button -->
+                <button class="tool-btn" id="btn-touch-toggle" data-title="Toggle Finger Drawing">
+                    <i class="fas fa-hand-paper"></i>
+                </button>
+            </div>
+        </div>
 
+        <!-- Right/Floating: Actions -->
+        <div class="action-bar">
+            <button class="action-btn" id="btn-undo" data-title="Undo"><i class="fas fa-undo"></i></button>
+            <button class="action-btn" id="btn-redo" data-title="Redo"><i class="fas fa-redo"></i></button>
+            <button class="action-btn" id="btn-image" data-title="Import Image"><i class="fas fa-image"></i></button>
+            <button class="action-btn danger" id="btn-clear" data-title="Clear All"><i class="fas fa-trash-alt"></i></button>
+            <button class="action-btn success" id="btn-download" data-title="Save Board"><i class="fas fa-download"></i></button>
+        </div>
+    </div>
+
+    <!-- Hidden Inputs -->
+    <input type="file" id="image-upload" accept="image/*">
+
+    <!-- Modals -->
+    <div class="overlay" id="modal-overlay"></div>
+    <div class="modal" id="settings-modal">
+        <h3>Board Settings</h3>
+        
+        <!-- Section 1: Canvas Background -->
+        <h4>Canvas Background</h4>
+        <div class="bg-options">
+            <div class="bg-option active" data-bg="white">White</div>
+            <div class="bg-option" data-bg="black">Blackboard</div>
+            <div class="bg-option" data-bg="blue" style="background-color: #003366; color: white;">Deep Blue</div>
+            <div class="bg-option" data-bg="grid">Graph Grid</div>
+            <div class="bg-option" data-bg="ruled">Notebook</div>
+            <div class="bg-option" id="bg-custom-container" data-bg="custom">
+                Custom: <input type="color" id="bg-color-picker" value="#ffffff">
+            </div>
+        </div>
+
+        <!-- Section 2: Toolbar Theme (NEW) -->
+        <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">
+            <h4>Toolbar Theme</h4>
+            <div class="bg-options">
+                <div class="bg-option ui-theme-opt" data-theme="light">Light</div>
+                <div class="bg-option ui-theme-opt" data-theme="dark" style="background-color: #333; color: white;">Dark</div>
+                <div class="bg-option ui-theme-opt" data-theme="blue" style="background-color: #4a90e2; color: white;">Blue</div>
+                <div class="bg-option ui-theme-opt" id="ui-custom-container" data-theme="custom">
+                    Custom: <input type="color" id="ui-color-picker" value="#f0f0f0">
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: right; margin-top: 25px;">
+            <button class="action-btn success" style="width: auto; padding: 0 20px; border-radius: 8px; font-size: 14px;" id="close-modal">Done</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Whiteboard Application Logic v3
+         * Includes UI Theming
+         */
+        
+        // --- State Management ---
+        const state = {
+            tool: 'pen', 
+            color: '#000000',
+            width: 3,
+            isDrawing: false,
+            startX: 0,
+            startY: 0,
+            bgType: 'white', 
+            customBgColor: '#ffffff',
+            history: [],
+            historyStep: -1,
+            maxHistory: 30,
+            touchDrawingEnabled: true
         };
-        
-        // Use the static config for local hosting
-        const firebaseConfig = staticFirebaseConfig;
-        const appId = firebaseConfig.projectId || 'default-app-id'; // Use project ID as app ID for simplicity
-        const apiKey = firebaseConfig.apiKey;
 
-        // --- FIREBASE IMPORTS ---
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, addDoc, onSnapshot, collection, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // --- GLOBAL VARIABLES ---
-        let db;
-        let auth;
-        let currentUserId = null;
-        let cart = JSON.parse(localStorage.getItem('bookCart')) || [];
-        
-        // --- DOM REFERENCES ---
-        const userIdDisplay = document.getElementById('user-id-display');
-        const authAlert = document.getElementById('auth-alert');
-        const catalogGrid = document.getElementById('catalog-grid');
-        const cartItemsContainer = document.getElementById('cart-items');
-        const emptyCartMessage = document.getElementById('empty-cart-message');
-        const cartSubtotal = document.getElementById('cart-subtotal');
-        const cartTotal = document.getElementById('cart-total');
-        const placeOrderBtn = document.getElementById('place-order-btn');
-        const checkoutForm = document.getElementById('checkout-form');
-        const inquiryForm = document.getElementById('inquiry-form');
-        const submitInquiryBtn = document.getElementById('submit-inquiry-btn');
-        const orderModal = document.getElementById('order-modal');
-        const modalDetails = document.getElementById('modal-details');
-        const modalTitle = document.getElementById('modal-title');
-        const modalDescription = document.getElementById('modal-description');
-        const modalIcon = document.getElementById('modal-icon');
-        const cartCount = document.getElementById('cart-count');
-        
-        const historyTabs = {
-            orders: document.getElementById('tab-orders'),
-            inquiries: document.getElementById('tab-inquiries')
-        };
-        const historyLists = {
-            orders: document.getElementById('orders-list'),
-            inquiries: document.getElementById('inquiries-list')
-        };
-
-        // --- MOCK DATA ---
-        const BOOKS = [
-            { id: 'math101', name: 'Advanced Calculus', price: 650, author: 'Dr. A. Sharma', year: 2023, image: `https://placehold.co/100x150/4F46E5/ffffff?text=Math` },
-            { id: 'phy202', name: 'Quantum Mechanics', price: 920, author: 'Prof. J. Singh', year: 2022, image: `https://placehold.co/100x150/10B981/ffffff?text=Physics` },
-            { id: 'hist303', name: 'Ancient Civilizations', price: 480, author: 'S. K. Gupta', year: 2021, image: `https://placehold.co/100x150/F59E0B/ffffff?text=History` },
-            { id: 'cs404', name: 'Data Structures in C++', price: 790, author: 'P. V. Kumar', year: 2023, image: `https://placehold.co/100x150/EF4444/ffffff?text=CS` }
+        const colors = [
+            '#000000', '#e74c3c', '#2ecc71', '#3498db', '#9b59b6', '#f1c40f', '#e67e22', '#95a5a6', '#ffffff'
         ];
 
-        // --- FIREBASE INITIALIZATION & AUTHENTICATION ---
-        try {
-            // CRITICAL CHECK: Ensure placeholders are replaced when running locally
-            if (firebaseConfig.apiKey.includes("YOUR_API_KEY_HERE") || firebaseConfig.projectId.includes("YOUR_PROJECT_ID_HERE")) {
-                const placeholderError = "CRITICAL ERROR: Firebase configuration placeholders are still present. You MUST replace 'YOUR_API_KEY_HERE' and other values with your actual Firebase project credentials for the app to work locally.";
-                console.error(placeholderError);
-                authAlert.textContent = placeholderError;
-                authAlert.classList.remove('hidden');
-                throw new Error("Missing Firebase Credentials"); // Stop execution
-            }
+        // --- DOM Elements ---
+        const container = document.getElementById('canvas-container');
+        const bgCanvas = document.getElementById('bg-canvas');
+        const mainCanvas = document.getElementById('main-canvas');
+        const tempCanvas = document.getElementById('temp-canvas');
+        
+        const ctxBg = bgCanvas.getContext('2d');
+        const ctxMain = mainCanvas.getContext('2d');
+        const ctxTemp = tempCanvas.getContext('2d');
 
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
+        const toolBtns = document.querySelectorAll('.tool-btn[data-tool]');
+        const colorPalette = document.getElementById('color-palette');
+        const strokeInput = document.getElementById('stroke-width');
+        
+        // --- Initialization ---
+        
+        function init() {
+            resizeCanvases();
+            window.addEventListener('resize', resizeCanvases);
             
-            // Set persistence to local so anonymous user stays logged in
-            setPersistence(auth, browserLocalPersistence);
+            initColors();
+            saveState(); // Initial blank state
+            drawBackground();
 
-            // Check if a custom token is available (from Canvas environment)
-            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            // Pointer events unify mouse, touch, and pen
+            tempCanvas.addEventListener('pointerdown', startDraw);
+            tempCanvas.addEventListener('pointermove', draw);
+            tempCanvas.addEventListener('pointerup', stopDraw);
+            tempCanvas.addEventListener('pointerout', stopDraw);
+            tempCanvas.addEventListener('pointercancel', stopDraw);
+            
+            tempCanvas.addEventListener('touchstart', (e) => e.preventDefault(), {passive: false});
 
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    currentUserId = user.uid;
-                    userIdDisplay.textContent = currentUserId;
-                    authAlert.classList.add('hidden');
-                    console.log('Firebase Authentication Success. User ID:', currentUserId);
-                    
-                    // Start real-time listeners once authenticated
-                    startHistoryListeners();
-                } else if (initialAuthToken) {
-                    // Sign in with custom token if available (Canvas environment)
-                    await signInWithCustomToken(auth, initialAuthToken).catch(error => {
-                        console.error("Custom Token Sign-in Failed:", error);
-                        // Fallback to anonymous sign-in on custom token failure
-                        attemptAnonymousSignIn();
-                    });
+            // Tools
+            toolBtns.forEach(btn => {
+                btn.addEventListener('click', () => setTool(btn.dataset.tool));
+            });
+            
+            // Touch/Pen Toggle
+            const touchBtn = document.getElementById('btn-touch-toggle');
+            touchBtn.addEventListener('click', () => {
+                state.touchDrawingEnabled = !state.touchDrawingEnabled;
+                if (state.touchDrawingEnabled) {
+                    touchBtn.innerHTML = '<i class="fas fa-hand-paper"></i>';
+                    touchBtn.style.color = 'var(--toolbar-text)'; // Use variable
+                    touchBtn.setAttribute('data-title', 'Finger Drawing: ON');
                 } else {
-                    // Attempt anonymous sign-in for local or external hosting
-                    attemptAnonymousSignIn();
+                    touchBtn.innerHTML = '<i class="fas fa-hand-rock"></i>'; 
+                    touchBtn.style.color = '#e74c3c'; 
+                    touchBtn.setAttribute('data-title', 'Finger Drawing: OFF (Pen Only)');
                 }
             });
+
+            // Settings
+            strokeInput.addEventListener('input', (e) => state.width = parseInt(e.target.value));
             
-        } catch (error) {
-            if (error.message !== "Missing Firebase Credentials") {
-                console.error("Firebase Initialization Failed:", error);
-                authAlert.classList.remove('hidden');
-                authAlert.textContent = `FATAL ERROR: Initialization failed. Check console and config.`;
+            // Actions
+            document.getElementById('btn-undo').addEventListener('click', undo);
+            document.getElementById('btn-redo').addEventListener('click', redo);
+            document.getElementById('btn-clear').addEventListener('click', clearBoard);
+            document.getElementById('btn-download').addEventListener('click', downloadBoard);
+            
+            // Image Import
+            const imgBtn = document.getElementById('btn-image');
+            const fileInput = document.getElementById('image-upload');
+            imgBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleImageUpload);
+
+            // --- Modal & Settings Logic ---
+            const bgBtn = document.getElementById('btn-background');
+            const overlay = document.getElementById('modal-overlay');
+            const modal = document.getElementById('settings-modal');
+            const closeBtn = document.getElementById('close-modal');
+            
+            // Canvas Background Elements
+            const bgOptions = document.querySelectorAll('.bg-option:not(.ui-theme-opt)'); // Exclude theme options
+            const bgCustomContainer = document.getElementById('bg-custom-container');
+            const bgColorPicker = document.getElementById('bg-color-picker');
+
+            // UI Theme Elements
+            const themeOptions = document.querySelectorAll('.ui-theme-opt');
+            const uiCustomContainer = document.getElementById('ui-custom-container');
+            const uiColorPicker = document.getElementById('ui-color-picker');
+
+            bgBtn.addEventListener('click', () => { overlay.style.display = 'block'; modal.style.display = 'block'; });
+            const closeModal = () => { overlay.style.display = 'none'; modal.style.display = 'none'; };
+            overlay.addEventListener('click', closeModal);
+            closeBtn.addEventListener('click', closeModal);
+
+            // 1. Canvas Background Logic
+            bgOptions.forEach(opt => {
+                // Skip if it's the container for custom (handled separately)
+                if (opt.id === 'bg-custom-container') return;
+
+                opt.addEventListener('click', () => {
+                    bgOptions.forEach(b => b.classList.remove('active'));
+                    opt.classList.add('active');
+                    state.bgType = opt.dataset.bg;
+                    updatePenColorForBg();
+                    drawBackground();
+                });
+            });
+
+            bgColorPicker.addEventListener('input', (e) => {
+                state.customBgColor = e.target.value;
+                state.bgType = 'custom';
+                bgOptions.forEach(b => b.classList.remove('active'));
+                bgCustomContainer.classList.add('active');
+                drawBackground();
+            });
+            bgCustomContainer.addEventListener('click', (e) => {
+                if(e.target !== bgColorPicker) bgColorPicker.click();
+            });
+
+            // 2. Toolbar Theme Logic
+            themeOptions.forEach(opt => {
+                if(opt.id === 'ui-custom-container') return;
+
+                opt.addEventListener('click', () => {
+                    themeOptions.forEach(t => t.classList.remove('active'));
+                    opt.classList.add('active');
+                    applyUITheme(opt.dataset.theme);
+                });
+            });
+
+            uiColorPicker.addEventListener('input', (e) => {
+                themeOptions.forEach(t => t.classList.remove('active'));
+                uiCustomContainer.classList.add('active');
+                applyUITheme('custom', e.target.value);
+            });
+            uiCustomContainer.addEventListener('click', (e) => {
+                if(e.target !== uiColorPicker) uiColorPicker.click();
+            });
+        }
+
+        // --- UI Theme Application ---
+        function applyUITheme(theme, customColor = null) {
+            const root = document.documentElement;
+            let bg, text, activeBg, activeText;
+
+            if (theme === 'light') {
+                bg = '#ffffff';
+                text = '#555555';
+                activeBg = '#e6f0fa';
+                activeText = '#4a90e2';
+            } else if (theme === 'dark') {
+                bg = '#333333';
+                text = '#eeeeee';
+                activeBg = '#555555';
+                activeText = '#ffffff';
+            } else if (theme === 'blue') {
+                bg = '#4a90e2';
+                text = '#ffffff';
+                activeBg = '#357abd';
+                activeText = '#ffffff';
+            } else if (theme === 'custom' && customColor) {
+                bg = customColor;
+                // Calculate contrast for text (simple brightness check)
+                const rgb = hexToRgb(bg);
+                const brightness = Math.round(((parseInt(rgb.r) * 299) + (parseInt(rgb.g) * 587) + (parseInt(rgb.b) * 114)) / 1000);
+                text = (brightness > 125) ? '#333333' : '#ffffff';
+                // Slightly darker or lighter for active state
+                activeBg = (brightness > 125) ? adjustColor(bg, -20) : adjustColor(bg, 20);
+                activeText = text;
+            }
+
+            if(bg) {
+                root.style.setProperty('--toolbar-bg', bg);
+                root.style.setProperty('--toolbar-text', text);
+                root.style.setProperty('--active-tool-bg', activeBg);
+                root.style.setProperty('--active-tool-text', activeText);
             }
         }
 
-        async function attemptAnonymousSignIn() {
-             userIdDisplay.textContent = 'Signing In...';
-             try {
-                await signInAnonymously(auth);
-                // onAuthStateChanged handler will pick up the successful sign-in
-             } catch(error) {
-                console.error("Anonymous Sign-in Failed:", error);
-                userIdDisplay.textContent = 'Auth Failed';
-                authAlert.classList.remove('hidden');
-                authAlert.textContent = `FATAL ERROR: Authentication failed (${error.code}). Check your Firebase Config and ensure Anonymous Auth is enabled.`;
-             }
+        function hexToRgb(hex) {
+            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
         }
 
+        function adjustColor(color, amount) {
+            return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
+        }
 
-        // --- RENDERING FUNCTIONS ---
+        // --- Helper: Auto-switch pen color ---
+        function updatePenColorForBg() {
+            const darkBackgrounds = ['black', 'blue'];
+            if (darkBackgrounds.includes(state.bgType)) {
+                if (state.color === '#000000') setColor('#ffffff');
+            } else {
+                if (state.color === '#ffffff') setColor('#000000');
+            }
+        }
 
-        function renderCatalog() {
-            catalogGrid.innerHTML = BOOKS.map(book => `
-                <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition duration-300 overflow-hidden border border-gray-100 p-4 flex flex-col justify-between">
-                    <div class="flex items-center space-x-4 mb-4">
-                        <img src="${book.image}" alt="${book.name}" class="w-16 h-24 object-cover rounded-md shadow-inner">
-                        <div class="flex-1">
-                            <h3 class="text-lg font-semibold text-gray-800">${book.name}</h3>
-                            <p class="text-sm text-gray-500">${book.author} (${book.year})</p>
-                        </div>
-                    </div>
+        // --- Canvas Sizing ---
+        function resizeCanvases() {
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            [bgCanvas, mainCanvas, tempCanvas].forEach(c => {
+                c.width = width;
+                c.height = height;
+            });
+            
+            drawBackground();
+            if (state.history.length > 0 && state.historyStep >= 0) {
+                 const img = new Image();
+                 img.src = state.history[state.historyStep];
+                 img.onload = () => ctxMain.drawImage(img, 0, 0);
+            }
+        }
+
+        // --- Background Logic ---
+        function drawBackground() {
+            const w = bgCanvas.width;
+            const h = bgCanvas.height;
+            ctxBg.clearRect(0, 0, w, h);
+
+            let fill = '#ffffff';
+
+            if (state.bgType === 'white') fill = '#ffffff';
+            else if (state.bgType === 'black') fill = '#2c3e50';
+            else if (state.bgType === 'blue') fill = '#003366'; 
+            else if (state.bgType === 'custom') fill = state.customBgColor;
+            else fill = '#ffffff';
+
+            ctxBg.fillStyle = fill;
+            ctxBg.fillRect(0, 0, w, h);
+
+            if (state.bgType === 'grid') {
+                ctxBg.beginPath();
+                ctxBg.strokeStyle = '#e0e0e0';
+                ctxBg.lineWidth = 1;
+                const gridSize = 40;
+                for (let x = 0; x <= w; x += gridSize) { ctxBg.moveTo(x, 0); ctxBg.lineTo(x, h); }
+                for (let y = 0; y <= h; y += gridSize) { ctxBg.moveTo(0, y); ctxBg.lineTo(w, y); }
+                ctxBg.stroke();
+            }
+            else if (state.bgType === 'ruled') {
+                ctxBg.beginPath();
+                ctxBg.strokeStyle = '#aaccff';
+                ctxBg.lineWidth = 1;
+                const lineHeight = 40;
+                ctxBg.moveTo(60, 0); ctxBg.lineTo(60, h); 
+                ctxBg.stroke();
+                ctxBg.beginPath();
+                for (let y = lineHeight; y <= h; y += lineHeight) { ctxBg.moveTo(0, y); ctxBg.lineTo(w, y); }
+                ctxBg.stroke();
+            }
+        }
+
+        // --- Tools & Colors ---
+        function initColors() {
+            colorPalette.innerHTML = '';
+            colors.forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'color-swatch';
+                div.style.backgroundColor = c;
+                if (c === '#ffffff') div.style.border = '1px solid #ccc';
+                div.addEventListener('click', () => setColor(c));
+                colorPalette.appendChild(div);
+            });
+            setColor(state.color);
+        }
+
+        function setColor(c) {
+            state.color = c;
+            document.querySelectorAll('.color-swatch').forEach(el => {
+                el.classList.toggle('active', el.style.backgroundColor === getComputedStyleColor(c));
+            });
+        }
+        
+        function getComputedStyleColor(hex) {
+            const div = document.createElement('div');
+            div.style.color = hex;
+            document.body.appendChild(div);
+            const col = getComputedStyle(div).color;
+            document.body.removeChild(div);
+            return col;
+        }
+
+        function setTool(toolName) {
+            state.tool = toolName;
+            toolBtns.forEach(b => {
+                b.classList.toggle('active', b.dataset.tool === toolName);
+            });
+            
+            if (toolName === 'text') container.style.cursor = 'text';
+            else if (toolName === 'eraser') container.style.cursor = 'cell';
+            else container.style.cursor = 'crosshair';
+        }
+
+        // --- Drawing Logic (Pointer Events) ---
+
+        function getPos(e) {
+            const rect = container.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        function startDraw(e) {
+            // Palm Rejection: If drawing with finger is OFF, and input is touch, Ignore.
+            if (!state.touchDrawingEnabled && e.pointerType === 'touch') {
+                return;
+            }
+
+            tempCanvas.setPointerCapture(e.pointerId);
+
+            if (state.tool === 'text') {
+                handleTextTool(e);
+                return;
+            }
+
+            state.isDrawing = true;
+            const pos = getPos(e);
+            state.startX = pos.x;
+            state.startY = pos.y;
+            
+            ctxTemp.lineCap = 'round';
+            ctxTemp.lineJoin = 'round';
+            ctxTemp.lineWidth = state.tool === 'highlighter' ? 15 : state.width;
+            
+            if (state.tool === 'eraser') {
+                ctxTemp.strokeStyle = '#ffffff'; 
+                ctxTemp.lineWidth = state.width * 4;
+            } else if (state.tool === 'highlighter') {
+                ctxTemp.strokeStyle = state.color;
+                ctxTemp.globalAlpha = 0.4;
+            } else if (state.tool === 'laser') {
+                ctxTemp.strokeStyle = 'red';
+                ctxTemp.shadowBlur = 10;
+                ctxTemp.shadowColor = 'red';
+            } else {
+                ctxTemp.strokeStyle = state.color;
+                ctxTemp.globalAlpha = 1.0;
+                ctxTemp.shadowBlur = 0;
+            }
+
+            ctxTemp.beginPath();
+            ctxTemp.moveTo(pos.x, pos.y);
+        }
+
+        function draw(e) {
+            if (!state.isDrawing) return;
+            if (!state.touchDrawingEnabled && e.pointerType === 'touch') return;
+
+            const pos = getPos(e);
+            
+            if (['line', 'rect', 'circle', 'triangle'].includes(state.tool)) {
+                ctxTemp.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+            }
+
+            switch (state.tool) {
+                case 'pen':
+                case 'highlighter':
+                case 'eraser':
+                    if (e.getCoalescedEvents) {
+                        e.getCoalescedEvents().forEach(ce => {
+                             const p = getPos(ce);
+                             ctxTemp.lineTo(p.x, p.y);
+                             ctxTemp.stroke();
+                        });
+                    } else {
+                        ctxTemp.lineTo(pos.x, pos.y);
+                        ctxTemp.stroke();
+                    }
+                    break;
+                
+                case 'laser':
+                    ctxTemp.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+                    ctxTemp.beginPath();
+                    ctxTemp.moveTo(state.startX, state.startY); 
+                    ctxTemp.arc(pos.x, pos.y, 5, 0, Math.PI*2);
+                    ctxTemp.fillStyle = 'red';
+                    ctxTemp.fill();
+                    break;
+
+                case 'line':
+                    ctxTemp.beginPath();
+                    ctxTemp.moveTo(state.startX, state.startY);
+                    ctxTemp.lineTo(pos.x, pos.y);
+                    ctxTemp.stroke();
+                    break;
+
+                case 'rect':
+                    const w = pos.x - state.startX;
+                    const h = pos.y - state.startY;
+                    ctxTemp.strokeRect(state.startX, state.startY, w, h);
+                    break;
+
+                case 'circle':
+                    ctxTemp.beginPath();
+                    const radius = Math.sqrt(Math.pow(pos.x - state.startX, 2) + Math.pow(pos.y - state.startY, 2));
+                    ctxTemp.arc(state.startX, state.startY, radius, 0, 2 * Math.PI);
+                    ctxTemp.stroke();
+                    break;
                     
-                    <div class="flex justify-between items-end">
-                        <span class="text-xl font-bold text-indigo-600">₹${book.price.toFixed(2)}</span>
-                        <button onclick="addToCart('${book.id}')" class="flex items-center space-x-1 py-2 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-150 ease-in-out text-sm font-medium shadow-md">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                            <span>Add</span>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
+                case 'triangle':
+                    ctxTemp.beginPath();
+                    ctxTemp.moveTo(state.startX, state.startY + (pos.y - state.startY)); 
+                    ctxTemp.lineTo(state.startX + (pos.x - state.startX) / 2, state.startY); 
+                    ctxTemp.lineTo(pos.x, pos.y); 
+                    ctxTemp.closePath();
+                    ctxTemp.stroke();
+                    break;
+            }
         }
 
-        window.addToCart = function(bookId) {
-            const book = BOOKS.find(b => b.id === bookId);
-            if (book) {
-                const existingItem = cart.find(item => item.id === bookId);
-                if (existingItem) {
-                    existingItem.quantity += 1;
-                } else {
-                    cart.push({ ...book, quantity: 1 });
-                }
-                updateCartDisplay();
+        function stopDraw(e) {
+            if (!state.isDrawing) return;
+            
+            state.isDrawing = false;
+            
+            if(tempCanvas.hasPointerCapture(e.pointerId)) {
+                tempCanvas.releasePointerCapture(e.pointerId);
+            }
+
+            if (state.tool === 'laser') {
+                ctxTemp.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+                return;
+            }
+
+            if (state.tool === 'eraser') {
+                ctxMain.globalCompositeOperation = 'destination-out';
+                ctxMain.drawImage(tempCanvas, 0, 0);
+                ctxMain.globalCompositeOperation = 'source-over';
+            } else if (state.tool === 'highlighter') {
+                ctxMain.globalAlpha = 0.4;
+                ctxMain.drawImage(tempCanvas, 0, 0);
+                ctxMain.globalAlpha = 1.0;
+            } else {
+                ctxMain.drawImage(tempCanvas, 0, 0);
+            }
+
+            ctxTemp.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+            ctxTemp.globalAlpha = 1.0;
+            ctxTemp.shadowBlur = 0;
+
+            saveState();
+        }
+
+        // --- Text Tool ---
+        const textBox = document.getElementById('text-input-box');
+        const textInput = textBox.querySelector('textarea');
+        const textBtn = document.getElementById('text-finish-btn');
+        let textPos = {x: 0, y: 0};
+
+        function handleTextTool(e) {
+            const pos = getPos(e);
+            textPos = pos;
+            
+            textBox.style.display = 'block';
+            textBox.style.left = (pos.x) + 'px';
+            textBox.style.top = (pos.y) + 'px';
+            textInput.value = '';
+            textInput.style.color = state.color;
+            textInput.style.font = "20px 'Segoe UI', sans-serif";
+            textInput.focus();
+            
+            state.isDrawing = false;
+        }
+
+        textBtn.addEventListener('click', () => {
+            if (textInput.value.trim() !== '') {
+                ctxMain.font = "20px 'Segoe UI', sans-serif";
+                ctxMain.fillStyle = state.color;
+                ctxMain.textBaseline = 'top';
                 
-                // Show a confirmation bubble (optional: using the modal as a temporary message box)
-                showTemporaryMessage(`${book.name} added to cart!`);
-            }
-        };
-
-        window.removeFromCart = function(bookId) {
-            const index = cart.findIndex(item => item.id === bookId);
-            if (index > -1) {
-                cart.splice(index, 1);
-                updateCartDisplay();
-            }
-        };
-
-        function updateCartDisplay() {
-            localStorage.setItem('bookCart', JSON.stringify(cart));
-            cartItemsContainer.innerHTML = '';
-            
-            const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-            const total = subtotal; // Delivery is free
-
-            cartSubtotal.textContent = `₹${subtotal.toFixed(2)}`;
-            cartTotal.textContent = `₹${total.toFixed(2)}`;
-            cartCount.textContent = cart.length;
-
-            if (cart.length === 0) {
-                emptyCartMessage.classList.remove('hidden');
-                placeOrderBtn.disabled = true;
-                return;
-            }
-            
-            emptyCartMessage.classList.add('hidden');
-            placeOrderBtn.disabled = false; // Enabled by cart size, further checked by form validation
-
-            cart.forEach(item => {
-                const itemElement = document.createElement('div');
-                itemElement.className = 'flex justify-between items-center py-2 border-b last:border-b-0';
-                itemElement.innerHTML = `
-                    <div class="flex-1 pr-4">
-                        <p class="font-medium text-gray-800">${item.name}</p>
-                        <p class="text-sm text-gray-500">₹${item.price} x ${item.quantity}</p>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <span class="font-semibold text-indigo-600">₹${(item.price * item.quantity).toFixed(2)}</span>
-                        <button onclick="removeFromCart('${item.id}')" class="p-1 text-red-500 hover:text-red-700 transition">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                    </div>
-                `;
-                cartItemsContainer.appendChild(itemElement);
-            });
-        }
-        
-        // Function to display a confirmation message modal
-        function showConfirmationModal(title, description, details) {
-            modalTitle.textContent = title;
-            modalDescription.textContent = description;
-            modalDetails.textContent = details;
-            
-            // Set icon based on success
-            modalIcon.classList.remove('text-red-500');
-            modalIcon.classList.add('text-green-500');
-            modalIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />`;
-
-            orderModal.classList.remove('opacity-0', 'pointer-events-none');
-            orderModal.querySelector('div').classList.remove('scale-95');
-        }
-
-        function showTemporaryMessage(message) {
-            // A quick, minimal use of the modal for simple feedback
-            modalTitle.textContent = 'Success!';
-            modalDescription.textContent = message;
-            modalDetails.textContent = '';
-            modalIcon.classList.add('text-green-500');
-            modalIcon.classList.remove('text-red-500');
-            modalIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />`;
-
-            document.getElementById('copy-details-button').classList.add('hidden');
-            document.getElementById('close-modal-button').classList.remove('sm:col-start-1', 'sm:col-span-2');
-            document.getElementById('close-modal-button').classList.add('sm:col-span-2');
-
-            orderModal.classList.remove('opacity-0', 'pointer-events-none');
-            orderModal.querySelector('div').classList.remove('scale-95');
-
-            setTimeout(() => {
-                orderModal.classList.add('opacity-0', 'pointer-events-none');
-                orderModal.querySelector('div').classList.add('scale-95');
-                // Reset buttons for future use
-                document.getElementById('copy-details-button').classList.remove('hidden');
-                document.getElementById('close-modal-button').classList.add('sm:col-start-1');
-                document.getElementById('close-modal-button').classList.remove('sm:col-span-2');
-            }, 1500);
-        }
-
-
-        // --- HISTORY RENDERING ---
-
-        function renderHistory(listElement, data, type) {
-            listElement.innerHTML = '';
-            if (data.length === 0) {
-                listElement.innerHTML = `<p class="text-gray-500 italic">No previous ${type.toLowerCase()} found.</p>`;
-                return;
-            }
-
-            data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-            data.forEach(item => {
-                let details;
-                let title;
-                let statusColor = item.status === 'Pending' || item.status === 'New' ? 'text-yellow-600 bg-yellow-100' : 'text-green-600 bg-green-100';
-
-                if (type === 'Orders') {
-                    title = `Order #${item.id.substring(0, 8)}`;
-                    details = `Total: ₹${item.totalAmount.toFixed(2)} | Items: ${item.items.length}`;
-                } else { // Inquiries
-                    title = `Inquiry for: ${item.bookName}`;
-                    details = `Contact: ${item.phone} | Address: ${item.address.substring(0, 30)}...`;
-                }
-
-                listElement.innerHTML += `
-                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <div class="flex justify-between items-center mb-1">
-                            <p class="font-semibold text-gray-800">${title}</p>
-                            <span class="text-xs font-medium px-2 py-0.5 rounded-full ${statusColor}">
-                                ${item.status}
-                            </span>
-                        </div>
-                        <p class="text-sm text-gray-600">${details}</p>
-                        <p class="text-xs text-gray-400 mt-1">Submitted: ${new Date(item.timestamp).toLocaleString()}</p>
-                    </div>
-                `;
-            });
-        }
-
-
-        // --- FIREBASE LISTENERS ---
-
-        function startHistoryListeners() {
-            if (!db || !currentUserId) return;
-
-            // Ensure to use the correct public path for collaborative apps
-            const ordersCollectionRef = collection(db, `artifacts/${appId}/public/data/orders`);
-            const ordersQuery = query(ordersCollectionRef, where("userId", "==", currentUserId));
-            
-            // Listen for user's orders
-            onSnapshot(ordersQuery, (snapshot) => {
-                const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderHistory(historyLists.orders, orders, 'Orders');
-            }, (error) => {
-                console.error("Error listening to orders:", error);
-            });
-
-            // Ensure to use the correct public path for collaborative apps
-            const inquiriesCollectionRef = collection(db, `artifacts/${appId}/public/data/inquiries`);
-            const inquiriesQuery = query(inquiriesCollectionRef, where("userId", "==", currentUserId));
-            
-            // Listen for user's inquiries
-            onSnapshot(inquiriesQuery, (snapshot) => {
-                const inquiries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderHistory(historyLists.inquiries, inquiries, 'Inquiries');
-            }, (error) => {
-                console.error("Error listening to inquiries:", error);
-            });
-        }
-
-
-        // --- FORM SUBMISSION HANDLERS ---
-
-        async function saveOrder(orderData) {
-            if (!currentUserId) {
-                console.error("Cannot save order: User not authenticated.");
-                showConfirmationModal("Submission Failed", "Authentication Error: Please check your Firebase setup. Cannot submit order without a valid User ID.", JSON.stringify(orderData, null, 2));
-                return;
-            }
-
-            placeOrderBtn.textContent = 'Saving Order...';
-            placeOrderBtn.disabled = true;
-
-            const finalOrderData = {
-                ...orderData,
-                userId: currentUserId,
-                timestamp: new Date().toISOString(), // Use ISO string for reliable sorting/storage
-                status: 'Pending',
-                paymentMethod: 'Cash on Delivery (COD)'
-            };
-
-            try {
-                // Use the correct public path
-                const docRef = await addDoc(collection(db, `artifacts/${appId}/public/data/orders`), finalOrderData);
-                console.log("Order submitted successfully. Doc ID:", docRef.id);
-
-                showConfirmationModal(
-                    "Order Placed Successfully!", 
-                    `Your order (ID: ${docRef.id.substring(0, 8)}) has been confirmed. You chose COD.`, 
-                    JSON.stringify(finalOrderData, null, 2)
-                );
+                const lines = textInput.value.split('\n');
+                const lineHeight = 25;
+                lines.forEach((line, i) => {
+                    ctxMain.fillText(line, textPos.x, textPos.y + (i * lineHeight));
+                });
                 
-                // Clear cart and reset form
-                cart = [];
-                updateCartDisplay();
-                checkoutForm.reset();
-
-            } catch (e) {
-                console.error("Error adding document to Firestore:", e);
-                // The most common error here is a Security Rule violation (Permission Denied)
-                showConfirmationModal(
-                    "Submission Failed (Firestore Error)", 
-                    `Could not save the document. This is often due to an invalid Firebase Security Rule (Error: ${e.code || e.message}).`, 
-                    JSON.stringify(finalOrderData, null, 2)
-                );
-            } finally {
-                placeOrderBtn.textContent = 'Place Order (COD)';
-                placeOrderBtn.disabled = false;
+                saveState();
             }
-        }
-        
-        async function saveInquiry(inquiryData) {
-            if (!currentUserId) {
-                console.error("Cannot save inquiry: User not authenticated.");
-                showConfirmationModal("Submission Failed", "Authentication Error: Please check your Firebase setup. Cannot submit inquiry without a valid User ID.", JSON.stringify(inquiryData, null, 2));
-                return;
+            textBox.style.display = 'none';
+        });
+
+        // --- Undo/Redo/History ---
+        function saveState() {
+            if (state.historyStep < state.history.length - 1) {
+                state.history = state.history.slice(0, state.historyStep + 1);
             }
-
-            submitInquiryBtn.textContent = 'Saving Inquiry...';
-            submitInquiryBtn.disabled = true;
-
-            const finalInquiryData = {
-                ...inquiryData,
-                userId: currentUserId,
-                timestamp: new Date().toISOString(),
-                status: 'New'
-            };
-
-            try {
-                // Use the correct public path
-                const docRef = await addDoc(collection(db, `artifacts/${appId}/public/data/inquiries`), finalInquiryData);
-                console.log("Inquiry submitted successfully. Doc ID:", docRef.id);
-
-                showConfirmationModal(
-                    "Inquiry Submitted Successfully!", 
-                    `Your inquiry (ID: ${docRef.id.substring(0, 8)}) has been recorded. We will contact you at ${inquiryData.phone}.`, 
-                    JSON.stringify(finalInquiryData, null, 2)
-                );
-                inquiryForm.reset();
-
-            } catch (e) {
-                console.error("Error adding inquiry to Firestore:", e);
-                // The most common error here is a Security Rule violation (Permission Denied)
-                showConfirmationModal(
-                    "Submission Failed (Firestore Error)", 
-                    `Could not save the inquiry. This is often due to an invalid Firebase Security Rule (Error: ${e.code || e.message}).`, 
-                    JSON.stringify(finalInquiryData, null, 2)
-                );
-            } finally {
-                submitInquiryBtn.textContent = 'Submit Inquiry';
-                submitInquiryBtn.disabled = false;
+            state.history.push(mainCanvas.toDataURL());
+            if (state.history.length > state.maxHistory) {
+                state.history.shift();
+            } else {
+                state.historyStep++;
             }
         }
 
-        checkoutForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Ensure cart is not empty and form is valid
-            if (cart.length === 0 || !checkoutForm.checkValidity()) {
-                // Using custom UI instead of alert() would be better, but simplified here.
-                showConfirmationModal("Missing Information", "Please add items to your cart and fill out all required delivery fields.", "");
-                return;
+        function undo() {
+            if (state.historyStep > 0) {
+                state.historyStep--;
+                restoreState();
+            } else if (state.historyStep === 0) {
+                state.historyStep = -1;
+                ctxMain.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
             }
+        }
 
-            const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        function redo() {
+            if (state.historyStep < state.history.length - 1) {
+                state.historyStep++;
+                restoreState();
+            }
+        }
 
-            const orderData = {
-                name: document.getElementById('customer-name').value,
-                phone: document.getElementById('customer-phone').value,
-                address: document.getElementById('customer-address').value,
-                items: cart.map(item => ({ id: item.id, name: item.name, price: item.price, quantity: item.quantity })),
-                totalAmount: totalAmount,
+        function restoreState() {
+            ctxMain.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+            const img = new Image();
+            img.src = state.history[state.historyStep];
+            img.onload = () => {
+                ctxMain.drawImage(img, 0, 0);
             };
+        }
 
-            saveOrder(orderData);
-        });
-
-        inquiryForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Ensure form is valid
-            if (!inquiryForm.checkValidity()) {
-                return;
+        function clearBoard() {
+            if(confirm('Are you sure you want to clear the entire board?')) {
+                ctxMain.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+                saveState();
             }
+        }
 
-            const inquiryData = {
-                bookName: document.getElementById('inquiry-book-name').value,
-                phone: document.getElementById('inquiry-phone').value,
-                address: document.getElementById('inquiry-address').value
+        // --- Image Import ---
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    let w = img.width;
+                    let h = img.height;
+                    const maxW = mainCanvas.width * 0.8;
+                    const maxH = mainCanvas.height * 0.8;
+
+                    if (w > maxW || h > maxH) {
+                        const ratio = Math.min(maxW / w, maxH / h);
+                        w *= ratio;
+                        h *= ratio;
+                    }
+
+                    const x = (mainCanvas.width - w) / 2;
+                    const y = (mainCanvas.height - h) / 2;
+
+                    ctxMain.drawImage(img, x, y, w, h);
+                    saveState();
+                };
+                img.src = event.target.result;
             };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        }
 
-            saveInquiry(inquiryData);
-        });
-        
-        // --- UTILITY HANDLERS ---
-        
-        // Tab switching logic for history
-        historyTabs.orders.addEventListener('click', () => {
-            historyTabs.orders.classList.add('tab-active');
-            historyTabs.inquiries.classList.remove('tab-active', 'text-gray-500');
-            historyLists.orders.classList.remove('hidden');
-            historyLists.inquiries.classList.add('hidden');
-        });
+        // --- Export ---
+        function downloadBoard() {
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = mainCanvas.width;
+            exportCanvas.height = mainCanvas.height;
+            const exCtx = exportCanvas.getContext('2d');
+            exCtx.drawImage(bgCanvas, 0, 0);
+            exCtx.drawImage(mainCanvas, 0, 0);
 
-        historyTabs.inquiries.addEventListener('click', () => {
-            historyTabs.inquiries.classList.add('tab-active');
-            historyTabs.orders.classList.remove('tab-active', 'text-gray-500');
-            historyLists.inquiries.classList.remove('hidden');
-            historyLists.orders.classList.add('hidden');
-        });
+            const link = document.createElement('a');
+            link.download = `whiteboard_session_${new Date().toISOString().slice(0,10)}.png`;
+            link.href = exportCanvas.toDataURL();
+            link.click();
+        }
 
-        document.getElementById('copy-details-button').addEventListener('click', () => {
-            try {
-                navigator.clipboard.writeText(modalDetails.textContent);
-                document.getElementById('copy-details-button').textContent = 'Copied!';
-                setTimeout(() => {
-                    document.getElementById('copy-details-button').textContent = 'Copy Details';
-                }, 2000);
-            } catch (err) {
-                 // Fallback for environments where clipboard API is restricted
-                 const textArea = document.createElement("textarea");
-                 textArea.value = modalDetails.textContent;
-                 document.body.appendChild(textArea);
-                 textArea.focus();
-                 textArea.select();
-                 try {
-                    document.execCommand('copy');
-                    document.getElementById('copy-details-button').textContent = 'Copied!';
-                    setTimeout(() => {
-                        document.getElementById('copy-details-button').textContent = 'Copy Details';
-                    }, 2000);
-                 } catch (err) {
-                    // Using custom UI instead of alert() would be better, but simplified here.
-                    showConfirmationModal("Copy Failed", "Your browser does not support automatic copying. Please manually select and copy the details from the box above.", "");
-                 }
-                 document.body.removeChild(textArea);
-            }
-        });
-
-        // --- MOBILE CART HANDLERS ---
-        
-        const cartContainer = document.getElementById('cart-container');
-        const cartButton = document.getElementById('cart-button');
-        const closeCartButton = document.getElementById('close-cart-button');
-        const closeModalButton = document.getElementById('close-modal-button');
-        
-        const hideMobileCart = () => {
-             cartContainer.classList.add('opacity-0', 'pointer-events-none');
-             cartContainer.querySelector('div').classList.remove('translate-x-0');
-             cartContainer.querySelector('div').classList.add('translate-x-full');
-        };
-
-        const showMobileCart = () => {
-             cartContainer.classList.remove('opacity-0', 'pointer-events-none');
-             cartContainer.querySelector('div').classList.remove('translate-x-full');
-             cartContainer.querySelector('div').classList.add('translate-x-0');
-        };
-
-        // Event Listeners for mobile cart and modal
-        cartButton.addEventListener('click', showMobileCart);
-        closeCartButton.addEventListener('click', hideMobileCart);
-        cartContainer.addEventListener('click', (e) => {
-            if (e.target === cartContainer && window.innerWidth < 1024) {
-                hideMobileCart();
-            }
-        });
-        
-        closeModalButton.addEventListener('click', () => {
-            orderModal.classList.add('opacity-0', 'pointer-events-none');
-            orderModal.querySelector('div').classList.add('scale-95');
-        });
-
-        // --- INITIALIZATION ---
-        window.onload = () => {
-            renderCatalog();
-            updateCartDisplay();
-            // startHistoryListeners is now called inside onAuthStateChanged
-        };
+        // Run
+        init();
 
     </script>
 </body>
