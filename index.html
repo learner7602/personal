@@ -544,7 +544,9 @@
                 transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
                 renderTransactions();
                 renderCharts();
-                updateTotalNetWorth();
+                
+                // CRITICAL FIX: Re-render accounts when transactions change so balances update
+                renderAccounts(); 
             });
         }
 
@@ -569,6 +571,9 @@
             const container = document.getElementById('accounts-container');
             const select = document.getElementById('account-select');
             
+            // Get currently selected value to preserve selection during re-render
+            const currentSelection = select.value;
+
             // Save total card to append later
             const totalHTML = `<div class="card total"><h3>Total Net Worth</h3><div class="balance" id="bal-total">...</div></div>`;
             
@@ -593,6 +598,13 @@
 
             container.innerHTML = cardsHTML + totalHTML;
             select.innerHTML = optionsHTML;
+            
+            // Restore selection if it still exists
+            if (currentSelection) {
+                const optionExists = Array.from(select.options).some(opt => opt.value === currentSelection);
+                if (optionExists) select.value = currentSelection;
+            }
+
             updateTotalNetWorth();
         }
 
@@ -750,4 +762,3 @@
     </script>
 </body>
 </html>
-
