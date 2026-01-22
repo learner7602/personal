@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FinTrack Pro</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="faviconi.png">
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- FontAwesome for Icons -->
@@ -89,6 +91,23 @@
 
         .welcome-text h1 { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
         .welcome-text small { color: var(--text-secondary); font-size: 0.9rem; }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .reset-btn {
+            background: rgba(255, 165, 0, 0.1);
+            border: 1px solid rgba(255, 165, 0, 0.3);
+            color: #ff9f43;
+            padding: 8px 15px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: 0.3s;
+        }
+        .reset-btn:hover { background: rgba(255, 165, 0, 0.25); color: #fff; }
 
         .logout-btn {
             background: rgba(255, 65, 108, 0.2);
@@ -297,7 +316,6 @@
         ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
     </style>
-     <link rel="icon" type="image/png" href="faviconi.png">
 </head>
 <body>
 
@@ -342,7 +360,10 @@
                 <h1 id="welcome-msg">Welcome</h1>
                 <small>Financial Overview</small>
             </div>
-            <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            <div class="header-actions">
+                <button class="reset-btn" onclick="handleReset()"><i class="fas fa-trash-restore"></i> Reset Data</button>
+                <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
         </div>
 
         <!-- Accounts Grid -->
@@ -449,7 +470,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, setDoc, updateDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // 1. Firebase Configuration
         const yourFirebaseConfig = {
@@ -515,6 +536,38 @@
         };
 
         window.handleLogout = () => signOut(auth);
+        
+        // Reset Account Feature
+        window.handleReset = async () => {
+            if (!currentUser) return;
+            const confirmReset = confirm("WARNING: This will permanently DELETE ALL your accounts and transactions.\n\nAre you sure you want to reset your data?");
+            if (!confirmReset) return;
+
+            try {
+                const userPath = `artifacts/${appId}/users/${currentUser.uid}`;
+                
+                // Delete Transactions
+                const transSnap = await getDocs(collection(db, userPath, 'transactions'));
+                const deletePromises = [];
+                transSnap.forEach(doc => {
+                    deletePromises.push(deleteDoc(doc.ref));
+                });
+
+                // Delete Accounts
+                const accSnap = await getDocs(collection(db, userPath, 'accounts'));
+                accSnap.forEach(doc => {
+                    deletePromises.push(deleteDoc(doc.ref));
+                });
+
+                await Promise.all(deletePromises);
+                
+                alert("Account reset successful. You can now create fresh accounts.");
+            } catch (err) {
+                console.error(err);
+                alert("Error resetting account: " + err.message);
+            }
+        };
+
         window.toggleAuth = (view) => {
             document.getElementById('login-form').classList.toggle('hidden', view === 'register');
             document.getElementById('register-form').classList.toggle('hidden', view === 'login');
