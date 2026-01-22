@@ -3,1084 +3,748 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pro Teaching Whiteboard v3</title>
-    <!-- Font Awesome for Icons -->
+    <title>FinTrack Pro</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
         :root {
-            --primary-color: #4a90e2;
-            --toolbar-bg: #ffffff;
-            --toolbar-text: #555555; /* Default icon color */
-            --toolbar-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            --active-tool-bg: #e6f0fa;
-            --active-tool-text: #4a90e2;
+            --bg-gradient: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --text-main: #ffffff;
+            --text-secondary: #b3b3b3;
+            --accent-color: #8E2DE2;
+            
+            --income: #00fa9a;
+            --expense: #ff416c;
         }
 
         * {
-            box-sizing: border-box;
-            user-select: none; /* Prevent selection while drawing */
-            -webkit-user-select: none;
-            touch-action: none; /* Prevent default touch actions like scrolling */
-        }
-
-        body, html {
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f0f0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Helvetica, sans-serif;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        /* --- Canvas Container --- */
-        #canvas-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            cursor: crosshair;
-            background-color: white;
-            overflow: hidden;
+        body {
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 0;
+            overflow-x: hidden;
         }
 
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            display: block;
-        }
-
-        /* --- UI Overlay --- */
-        .ui-layer {
-            position: absolute;
-            z-index: 100;
-            pointer-events: none; /* Let clicks pass through to canvas where not on buttons */
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-        }
-
-        /* --- Toolbar (Left Side) --- */
-        .toolbar {
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: var(--toolbar-bg);
-            padding: 8px;
-            border-radius: 12px;
-            box-shadow: var(--toolbar-shadow);
+        /* --- Auth Screens --- */
+        #auth-view {
             display: flex;
-            flex-direction: column;
-            gap: 8px;
-            pointer-events: auto;
-            max-height: 90vh;
-            overflow-y: auto;
-            transition: background-color 0.3s;
-        }
-
-        /* --- Tool Groups --- */
-        .tool-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid rgba(0,0,0,0.1); /* Transparent border for dark mode compat */
-        }
-        .tool-group:last-child {
-            border-bottom: none;
-        }
-
-        .tool-btn {
-            width: 40px;
-            height: 40px;
-            border: none;
-            background: transparent;
-            border-radius: 8px;
-            cursor: pointer;
-            color: var(--toolbar-text); /* Use variable for theming */
-            font-size: 1.2rem;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
             justify-content: center;
-            position: relative;
-        }
-
-        .tool-btn:hover {
-            background-color: rgba(0,0,0,0.05); /* Subtle hover effect */
-            color: var(--primary-color);
-        }
-
-        .tool-btn.active {
-            background-color: var(--active-tool-bg);
-            color: var(--active-tool-text);
-            font-weight: bold;
-        }
-
-        /* Tooltip for desktop */
-        .tool-btn::after {
-            content: attr(data-title);
-            position: absolute;
-            left: 100%;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            white-space: nowrap;
-            margin-left: 10px;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-            z-index: 1000;
-        }
-        
-        @media (hover: hover) {
-            .tool-btn:hover::after {
-                opacity: 1;
-            }
-        }
-
-        /* --- Properties Bar (Top) --- */
-        .properties-bar {
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--toolbar-bg);
-            padding: 8px 16px;
-            border-radius: 12px;
-            box-shadow: var(--toolbar-shadow);
-            pointer-events: auto;
-            display: flex;
             align-items: center;
-            gap: 15px;
-            transition: background-color 0.3s;
-            color: var(--toolbar-text);
-        }
-
-        .color-picker-wrapper {
-            display: flex;
-            gap: 5px;
-        }
-
-        .color-swatch {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: transform 0.1s;
-        }
-        .color-swatch:hover { transform: scale(1.1); }
-        .color-swatch.active { border-color: var(--toolbar-text); transform: scale(1.1); box-shadow: 0 0 4px rgba(0,0,0,0.3); }
-
-        .line-width-slider {
-            width: 100px;
-            cursor: pointer;
-        }
-
-        /* --- Action Bar (Bottom Right) --- */
-        .action-bar {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            display: flex;
-            gap: 10px;
-            pointer-events: auto;
-        }
-
-        .action-btn {
-            background: var(--toolbar-bg);
-            border: none;
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            box-shadow: var(--toolbar-shadow);
-            cursor: pointer;
-            color: var(--toolbar-text);
-            font-size: 1.1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.1s;
-        }
-        
-        .action-btn:active { transform: scale(0.95); }
-        .action-btn.danger { color: #e74c3c; }
-        .action-btn.success { color: #2ecc71; }
-
-        /* --- Floating Windows (Settings/Text Input) --- */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
+            min-height: 100vh;
             padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            z-index: 200;
-            pointer-events: auto;
-            min-width: 320px;
-            max-height: 80vh;
-            overflow-y: auto;
         }
 
-        .modal h3 { margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .modal h4 { margin: 15px 0 5px 0; color: #666; font-size: 14px; text-transform: uppercase; }
-        
-        .bg-options {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .bg-option {
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            text-align: center;
-            cursor: pointer;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
-            color: #333; /* Modal always white bg, so text dark */
-        }
-        .bg-option:hover { background: #f9f9f9; }
-        .bg-option.active { border-color: var(--primary-color); background: #e6f0fa; color: var(--primary-color); }
-
-        .overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.3);
-            z-index: 199;
-            pointer-events: auto;
-        }
-
-        /* --- Text Input Helper --- */
-        #text-input-box {
-            position: absolute;
-            display: none;
-            z-index: 150;
-            background: transparent;
-            border: 1px dashed #333;
-            min-width: 100px;
-            pointer-events: auto;
-        }
-        #text-input-box textarea {
+        .auth-card {
+            background: rgba(15, 12, 41, 0.95);
+            border: 1px solid var(--glass-border);
+            padding: 40px;
+            border-radius: 20px;
             width: 100%;
-            height: 100%;
-            border: none;
-            background: rgba(255,255,255,0.8);
-            font-family: inherit;
-            font-size: 20px;
-            color: inherit;
-            resize: both;
-            overflow: hidden;
-            outline: none;
-            padding: 5px;
+            max-width: 400px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        #text-finish-btn {
-            position: absolute;
-            bottom: -35px;
-            right: 0;
-            background: #2ecc71;
+
+        .auth-card h2 { margin-bottom: 20px; font-size: 2rem; background: linear-gradient(to right, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .auth-card p { color: var(--text-secondary); margin-bottom: 30px; }
+
+        .auth-switch {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        .auth-switch span { color: #fff; cursor: pointer; text-decoration: underline; font-weight: bold; }
+
+        /* --- Dashboard Layout --- */
+        #dashboard-view {
+            display: none; /* Hidden by default */
+            padding: 15px;
+            padding-bottom: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* --- Header --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-top: 10px;
+        }
+
+        .welcome-text h1 { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .welcome-text small { color: var(--text-secondary); font-size: 0.9rem; }
+
+        .logout-btn {
+            background: rgba(255, 65, 108, 0.2);
+            border: 1px solid rgba(255, 65, 108, 0.3);
+            color: #ff416c;
+            padding: 8px 15px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: 0.3s;
+        }
+        .logout-btn:hover { background: rgba(255, 65, 108, 0.4); }
+
+        /* --- Dynamic Account Cards --- */
+        .accounts-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .add-acc-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--glass-border);
             color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
+            padding: 5px 12px;
+            border-radius: 8px;
             cursor: pointer;
+            font-size: 0.8rem;
         }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        @media (min-width: 768px) {
+            .cards-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        }
+
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 15px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 100px;
+            transition: transform 0.2s;
+        }
+        .card:active { transform: scale(0.98); }
+
+        .card h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; margin-bottom: 5px; }
+        .card .balance { font-size: 1.2rem; font-weight: 800; word-break: break-all; }
         
-        /* Custom Color Input Styling */
-        input[type="color"] {
-            -webkit-appearance: none;
+        .card.total {
+            background: linear-gradient(135deg, #8E2DE2, #4A00E0);
+            grid-column: span 2;
+        }
+        @media (min-width: 768px) { .card.total { grid-column: span 1; } }
+
+        /* --- Main Content Grid --- */
+        .main-container {
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 20px;
+        }
+
+        @media (min-width: 900px) {
+            .main-container { display: grid; grid-template-columns: 2fr 1fr; }
+        }
+
+        /* --- Forms & Inputs --- */
+        .glass-panel {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .panel-title { margin-bottom: 15px; font-size: 1.1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+
+        .form-grid { display: grid; gap: 15px; }
+
+        input, select {
+            width: 100%;
+            padding: 14px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            color: white;
+            outline: none;
+            font-size: 16px;
+            appearance: none;
+        }
+        input:focus, select:focus { border-color: var(--accent-color); background: rgba(0,0,0,0.5); }
+
+        button.primary-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(to right, #8E2DE2, #4A00E0);
             border: none;
-            width: 30px;
-            height: 30px;
+            border-radius: 12px;
+            color: white;
+            font-weight: bold;
+            font-size: 1rem;
             cursor: pointer;
-            padding: 0;
-            background: none;
+            box-shadow: 0 4px 15px rgba(142, 45, 226, 0.3);
+            transition: 0.3s;
         }
-        input[type="color"]::-webkit-color-swatch-wrapper {
-            padding: 0;
+        button.primary-btn:active { transform: scale(0.98); }
+
+        /* --- Chart Section --- */
+        .chart-container {
+            min-height: 350px;
+            display: flex;
+            flex-direction: column;
         }
-        input[type="color"]::-webkit-color-swatch {
+
+        .chart-controls {
+            display: flex;
+            background: rgba(0,0,0,0.3);
+            padding: 4px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+
+        .chart-btn {
+            flex: 1;
+            background: transparent;
             border: none;
-            border-radius: 4px;
+            color: var(--text-secondary);
+            padding: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
         }
+        .chart-btn.active { background: rgba(255,255,255,0.15); color: white; font-weight: bold; }
 
-        /* --- Mobile Adaptations --- */
-        @media (max-width: 600px) {
-            .toolbar {
-                left: 0;
-                top: auto;
-                bottom: 0;
-                transform: none;
-                width: 100%;
-                flex-direction: row;
-                border-radius: 12px 12px 0 0;
-                justify-content: space-around;
-                padding: 10px 5px;
-                max-height: 60px;
-                overflow-x: auto;
-            }
-            .tool-group {
-                flex-direction: row;
-                border-bottom: none;
-                border-right: 1px solid rgba(0,0,0,0.1);
-                padding-bottom: 0;
-                padding-right: 5px;
-            }
-            .tool-group:last-child { border-right: none; }
-            
-            .properties-bar {
-                width: 95%;
-                justify-content: space-between;
-                top: 10px;
-                padding: 5px 10px;
-            }
-            
-            .action-bar {
-                top: 60px;
-                right: 10px;
-                flex-direction: column;
-                bottom: auto;
-            }
-            
-            .line-width-slider { width: 60px; }
-            .modal { width: 90%; }
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+            text-align: center;
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 15px;
         }
+        .stat-box h4 { font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 5px; }
+        .stat-box p { font-size: 1rem; font-weight: bold; }
+        .text-green { color: var(--income); }
+        .text-red { color: var(--expense); }
 
-        /* Hidden file input */
-        #image-upload { display: none; }
+        /* --- Transaction List --- */
+        .transaction-list { max-height: 50vh; overflow-y: auto; padding-right: 5px; margin-top: 20px;}
+        .transaction-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            border-left: 4px solid transparent;
+        }
+        .transaction-item.inc { border-left-color: var(--income); }
+        .transaction-item.exp { border-left-color: var(--expense); }
+        .t-left { display: flex; flex-direction: column; gap: 4px; }
+        .t-desc { font-weight: 600; font-size: 0.95rem; }
+        .t-meta { font-size: 0.75rem; color: var(--text-secondary); display: flex; gap: 8px; align-items: center; }
+        .t-amt { font-weight: bold; font-size: 1rem; display: block; text-align: right; }
+        .t-del { background: none; border: none; color: #ff416c; padding: 5px; font-size: 0.8rem; cursor: pointer; margin-left: auto; display:block; text-align: right; width: 100%;}
 
+        /* --- Modals --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 12, 41, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .modal-content {
+            background: #24243e;
+            padding: 30px;
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            width: 100%;
+            max-width: 400px;
+        }
+        .modal-close { margin-top: 15px; background: #333; width: 100%; padding: 12px; border: none; border-radius: 12px; color: white; font-weight: bold; }
+
+        .hidden { display: none !important; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
     </style>
 </head>
 <body>
 
-    <!-- Canvas Container -->
-    <div id="canvas-container">
-        <!-- Layer 1: Background Pattern (Grid/Lines) -->
-        <canvas id="bg-canvas"></canvas>
-        <!-- Layer 2: Main Drawing -->
-        <canvas id="main-canvas"></canvas>
-        <!-- Layer 3: Temporary (Preview shapes, Laser pointer) -->
-        <canvas id="temp-canvas"></canvas>
-        
-        <!-- Text Input Overlay -->
-        <div id="text-input-box">
-            <textarea placeholder="Type here..."></textarea>
-            <button id="text-finish-btn"><i class="fas fa-check"></i></button>
+    <!-- AUTHENTICATION VIEW -->
+    <div id="auth-view">
+        <!-- Login Form -->
+        <div id="login-form" class="auth-card">
+            <h2><i class="fas fa-wallet"></i> FinTrack</h2>
+            <p>Sign in to manage your finances</p>
+            <form class="form-grid" onsubmit="handleLogin(event)">
+                <input type="email" id="login-email" placeholder="Email Address" required>
+                <input type="password" id="login-password" placeholder="Password" required>
+                <button type="submit" class="primary-btn">Sign In</button>
+            </form>
+            <div class="auth-switch">
+                Don't have an account? <span onclick="toggleAuth('register')">Register here</span>
+            </div>
+        </div>
+
+        <!-- Register Form -->
+        <div id="register-form" class="auth-card hidden">
+            <h2>Create Account</h2>
+            <p>Start tracking your net worth today</p>
+            <form class="form-grid" onsubmit="handleRegister(event)">
+                <input type="text" id="reg-name" placeholder="Full Name" required>
+                <input type="email" id="reg-email" placeholder="Email Address" required>
+                <input type="password" id="reg-password" placeholder="Password (min 6 chars)" required minlength="6">
+                <button type="submit" class="primary-btn">Create Account</button>
+            </form>
+            <div class="auth-switch">
+                Already have an account? <span onclick="toggleAuth('login')">Sign In</span>
+            </div>
         </div>
     </div>
 
-    <!-- UI Overlay -->
-    <div class="ui-layer">
+    <!-- DASHBOARD VIEW -->
+    <div id="dashboard-view">
         
-        <!-- Top: Properties -->
-        <div class="properties-bar">
-            <div class="color-picker-wrapper" id="color-palette">
-                <!-- Colors injected by JS -->
+        <!-- Header -->
+        <div class="header">
+            <div class="welcome-text">
+                <h1 id="welcome-msg">Welcome</h1>
+                <small>Financial Overview</small>
             </div>
-            <div style="border-left: 1px solid rgba(0,0,0,0.2); height: 20px; margin: 0 5px;"></div>
-            <div style="display: flex; align-items: center; gap: 5px;">
-                <i class="fas fa-circle" style="font-size: 6px;"></i>
-                <input type="range" min="1" max="20" value="3" class="line-width-slider" id="stroke-width">
-                <i class="fas fa-circle" style="font-size: 14px;"></i>
-            </div>
+            <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
         </div>
 
-        <!-- Left/Bottom: Toolbar -->
-        <div class="toolbar">
-            <div class="tool-group">
-                <button class="tool-btn active" data-tool="pen" data-title="Pen (Freehand)"><i class="fas fa-pen"></i></button>
-                <button class="tool-btn" data-tool="highlighter" data-title="Highlighter"><i class="fas fa-highlighter"></i></button>
-                <button class="tool-btn" data-tool="laser" data-title="Laser Pointer"><i class="fas fa-wand-magic-sparkles"></i></button>
-            </div>
-            <div class="tool-group">
-                <button class="tool-btn" data-tool="line" data-title="Straight Line"><i class="fas fa-slash"></i></button>
-                <button class="tool-btn" data-tool="rect" data-title="Rectangle"><i class="far fa-square"></i></button>
-                <button class="tool-btn" data-tool="circle" data-title="Circle"><i class="far fa-circle"></i></button>
-                <button class="tool-btn" data-tool="triangle" data-title="Triangle"><i class="fas fa-caret-up"></i></button>
-            </div>
-            <div class="tool-group">
-                <button class="tool-btn" data-tool="text" data-title="Text Box"><i class="fas fa-font"></i></button>
-                <button class="tool-btn" data-tool="eraser" data-title="Eraser"><i class="fas fa-eraser"></i></button>
-                <button class="tool-btn" id="btn-background" data-title="Settings & Theme"><i class="fas fa-cog"></i></button>
-            </div>
-            <div class="tool-group">
-                <!-- Touch Toggle Button -->
-                <button class="tool-btn" id="btn-touch-toggle" data-title="Toggle Finger Drawing">
-                    <i class="fas fa-hand-paper"></i>
-                </button>
-            </div>
+        <!-- Accounts Grid -->
+        <div class="accounts-header">
+            <h3 style="opacity: 0.8; font-size: 0.9rem;">MY ACCOUNTS</h3>
+            <button class="add-acc-btn" onclick="openModal('account-modal')"><i class="fas fa-plus"></i> Add Account</button>
         </div>
-
-        <!-- Right/Floating: Actions -->
-        <div class="action-bar">
-            <button class="action-btn" id="btn-undo" data-title="Undo"><i class="fas fa-undo"></i></button>
-            <button class="action-btn" id="btn-redo" data-title="Redo"><i class="fas fa-redo"></i></button>
-            <button class="action-btn" id="btn-image" data-title="Import Image"><i class="fas fa-image"></i></button>
-            <button class="action-btn danger" id="btn-clear" data-title="Clear All"><i class="fas fa-trash-alt"></i></button>
-            <button class="action-btn success" id="btn-download" data-title="Save Board"><i class="fas fa-download"></i></button>
-        </div>
-    </div>
-
-    <!-- Hidden Inputs -->
-    <input type="file" id="image-upload" accept="image/*">
-
-    <!-- Modals -->
-    <div class="overlay" id="modal-overlay"></div>
-    <div class="modal" id="settings-modal">
-        <h3>Board Settings</h3>
         
-        <!-- Section 1: Canvas Background -->
-        <h4>Canvas Background</h4>
-        <div class="bg-options">
-            <div class="bg-option active" data-bg="white">White</div>
-            <div class="bg-option" data-bg="black">Blackboard</div>
-            <div class="bg-option" data-bg="blue" style="background-color: #003366; color: white;">Deep Blue</div>
-            <div class="bg-option" data-bg="grid">Graph Grid</div>
-            <div class="bg-option" data-bg="ruled">Notebook</div>
-            <div class="bg-option" id="bg-custom-container" data-bg="custom">
-                Custom: <input type="color" id="bg-color-picker" value="#ffffff">
+        <div class="cards-grid" id="accounts-container">
+            <!-- Dynamic Accounts will appear here -->
+            <div class="card total">
+                <h3>Total Net Worth</h3>
+                <div class="balance" id="bal-total">₹0</div>
             </div>
         </div>
 
-        <!-- Section 2: Toolbar Theme (NEW) -->
-        <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">
-            <h4>Toolbar Theme</h4>
-            <div class="bg-options">
-                <div class="bg-option ui-theme-opt" data-theme="light">Light</div>
-                <div class="bg-option ui-theme-opt" data-theme="dark" style="background-color: #333; color: white;">Dark</div>
-                <div class="bg-option ui-theme-opt" data-theme="blue" style="background-color: #4a90e2; color: white;">Blue</div>
-                <div class="bg-option ui-theme-opt" id="ui-custom-container" data-theme="custom">
-                    Custom: <input type="color" id="ui-color-picker" value="#f0f0f0">
+        <!-- Main Content -->
+        <div class="main-container">
+            
+            <!-- Left: Add Transaction & History -->
+            <div class="glass-panel">
+                <div class="panel-title">Add Transaction</div>
+                <form id="trans-form" class="form-grid">
+                    <input type="text" id="desc" placeholder="Description (e.g. Salary, Coffee)" required>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="amount" placeholder="₹ Amount" required style="flex: 1;">
+                        <select id="type" style="flex: 1;">
+                            <option value="expense">Expense (-)</option>
+                            <option value="income">Income (+)</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; gap: 10px;">
+                        <select id="account-select" style="flex: 1;" required>
+                            <option value="" disabled selected>Select Account</option>
+                            <!-- Populated dynamically -->
+                        </select>
+                        <input type="date" id="date" required style="flex: 1;">
+                    </div>
+
+                    <button type="submit" class="primary-btn">Save</button>
+                </form>
+
+                <div class="transaction-list" id="trans-list">
+                    <div style="text-align: center; color: #666; padding: 20px;">Loading data...</div>
                 </div>
             </div>
-        </div>
 
-        <div style="text-align: right; margin-top: 25px;">
-            <button class="action-btn success" style="width: auto; padding: 0 20px; border-radius: 8px; font-size: 14px;" id="close-modal">Done</button>
+            <!-- Right: Charts -->
+            <div class="glass-panel chart-container">
+                <div class="chart-controls">
+                    <button class="chart-btn" onclick="updateChart('day')" id="btn-day">Daily</button>
+                    <button class="chart-btn active" onclick="updateChart('month')" id="btn-month">Monthly</button>
+                    <button class="chart-btn" onclick="updateChart('year')" id="btn-year">Yearly</button>
+                </div>
+                
+                <div style="flex: 1; position: relative;">
+                    <canvas id="financeChart"></canvas>
+                </div>
+                
+                <div class="stats-summary">
+                    <div class="stat-box">
+                        <h4>Income</h4>
+                        <p class="text-green" id="stat-inc">₹0</p>
+                    </div>
+                    <div class="stat-box">
+                        <h4>Expense</h4>
+                        <p class="text-red" id="stat-exp">₹0</p>
+                    </div>
+                    <div class="stat-box">
+                        <h4>Net Flow</h4>
+                        <p id="stat-net">₹0</p>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
-    <script>
-        /**
-         * Whiteboard Application Logic v3
-         * Includes UI Theming
-         */
-        
-        // --- State Management ---
-        const state = {
-            tool: 'pen', 
-            color: '#000000',
-            width: 3,
-            isDrawing: false,
-            startX: 0,
-            startY: 0,
-            bgType: 'white', 
-            customBgColor: '#ffffff',
-            history: [],
-            historyStep: -1,
-            maxHistory: 30,
-            touchDrawingEnabled: true
+    <!-- Create Account Modal -->
+    <div id="account-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Add New Account</h3>
+            <br>
+            <form class="form-grid" onsubmit="createAccount(event)">
+                <input type="text" id="new-acc-name" placeholder="Account Name (e.g. SBI, Wallet)" required>
+                <input type="number" id="new-acc-balance" placeholder="Opening Balance" required>
+                <select id="new-acc-color">
+                    <option value="linear-gradient(135deg, #FF512F, #DD2476)">Red/Pink</option>
+                    <option value="linear-gradient(135deg, #1FA2FF, #12D8FA)">Blue/Cyan</option>
+                    <option value="linear-gradient(135deg, #11998e, #38ef7d)">Green/Teal</option>
+                    <option value="linear-gradient(135deg, #F2994A, #F2C94C)">Orange/Gold</option>
+                    <option value="linear-gradient(135deg, #8E2DE2, #4A00E0)">Purple</option>
+                    <option value="#333">Dark/Neutral</option>
+                </select>
+                <button type="submit" class="primary-btn">Create Account</button>
+            </form>
+            <button class="modal-close" onclick="closeModal('account-modal')">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Firebase & Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 1. Firebase Configuration
+        const yourFirebaseConfig = {
+            apiKey: "AIzaSyC5l37G-KJiLfwAth0bKTn3NUv0vtao_g0",
+            authDomain: "mywallet-e637f.firebaseapp.com",
+            projectId: "mywallet-e637f",
+            storageBucket: "mywallet-e637f.firebasestorage.app",
+            messagingSenderId: "32421791633",
+            appId: "1:32421791633:web:c00ddf1c92cf1a91a57c30"
         };
-
-        const colors = [
-            '#000000', '#e74c3c', '#2ecc71', '#3498db', '#9b59b6', '#f1c40f', '#e67e22', '#95a5a6', '#ffffff'
-        ];
-
-        // --- DOM Elements ---
-        const container = document.getElementById('canvas-container');
-        const bgCanvas = document.getElementById('bg-canvas');
-        const mainCanvas = document.getElementById('main-canvas');
-        const tempCanvas = document.getElementById('temp-canvas');
+        const firebaseConfig = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : yourFirebaseConfig;
+        const appId = (typeof __app_id !== 'undefined') ? __app_id : 'fin-track-pro';
         
-        const ctxBg = bgCanvas.getContext('2d');
-        const ctxMain = mainCanvas.getContext('2d');
-        const ctxTemp = tempCanvas.getContext('2d');
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-        const toolBtns = document.querySelectorAll('.tool-btn[data-tool]');
-        const colorPalette = document.getElementById('color-palette');
-        const strokeInput = document.getElementById('stroke-width');
-        
-        // --- Initialization ---
-        
-        function init() {
-            resizeCanvases();
-            window.addEventListener('resize', resizeCanvases);
-            
-            initColors();
-            saveState(); // Initial blank state
-            drawBackground();
+        // 2. Global State
+        let currentUser = null;
+        let accounts = [];
+        let transactions = [];
+        let myChart = null;
 
-            // Pointer events unify mouse, touch, and pen
-            tempCanvas.addEventListener('pointerdown', startDraw);
-            tempCanvas.addEventListener('pointermove', draw);
-            tempCanvas.addEventListener('pointerup', stopDraw);
-            tempCanvas.addEventListener('pointerout', stopDraw);
-            tempCanvas.addEventListener('pointercancel', stopDraw);
-            
-            tempCanvas.addEventListener('touchstart', (e) => e.preventDefault(), {passive: false});
-
-            // Tools
-            toolBtns.forEach(btn => {
-                btn.addEventListener('click', () => setTool(btn.dataset.tool));
-            });
-            
-            // Touch/Pen Toggle
-            const touchBtn = document.getElementById('btn-touch-toggle');
-            touchBtn.addEventListener('click', () => {
-                state.touchDrawingEnabled = !state.touchDrawingEnabled;
-                if (state.touchDrawingEnabled) {
-                    touchBtn.innerHTML = '<i class="fas fa-hand-paper"></i>';
-                    touchBtn.style.color = 'var(--toolbar-text)'; // Use variable
-                    touchBtn.setAttribute('data-title', 'Finger Drawing: ON');
-                } else {
-                    touchBtn.innerHTML = '<i class="fas fa-hand-rock"></i>'; 
-                    touchBtn.style.color = '#e74c3c'; 
-                    touchBtn.setAttribute('data-title', 'Finger Drawing: OFF (Pen Only)');
-                }
-            });
-
-            // Settings
-            strokeInput.addEventListener('input', (e) => state.width = parseInt(e.target.value));
-            
-            // Actions
-            document.getElementById('btn-undo').addEventListener('click', undo);
-            document.getElementById('btn-redo').addEventListener('click', redo);
-            document.getElementById('btn-clear').addEventListener('click', clearBoard);
-            document.getElementById('btn-download').addEventListener('click', downloadBoard);
-            
-            // Image Import
-            const imgBtn = document.getElementById('btn-image');
-            const fileInput = document.getElementById('image-upload');
-            imgBtn.addEventListener('click', () => fileInput.click());
-            fileInput.addEventListener('change', handleImageUpload);
-
-            // --- Modal & Settings Logic ---
-            const bgBtn = document.getElementById('btn-background');
-            const overlay = document.getElementById('modal-overlay');
-            const modal = document.getElementById('settings-modal');
-            const closeBtn = document.getElementById('close-modal');
-            
-            // Canvas Background Elements
-            const bgOptions = document.querySelectorAll('.bg-option:not(.ui-theme-opt)'); // Exclude theme options
-            const bgCustomContainer = document.getElementById('bg-custom-container');
-            const bgColorPicker = document.getElementById('bg-color-picker');
-
-            // UI Theme Elements
-            const themeOptions = document.querySelectorAll('.ui-theme-opt');
-            const uiCustomContainer = document.getElementById('ui-custom-container');
-            const uiColorPicker = document.getElementById('ui-color-picker');
-
-            bgBtn.addEventListener('click', () => { overlay.style.display = 'block'; modal.style.display = 'block'; });
-            const closeModal = () => { overlay.style.display = 'none'; modal.style.display = 'none'; };
-            overlay.addEventListener('click', closeModal);
-            closeBtn.addEventListener('click', closeModal);
-
-            // 1. Canvas Background Logic
-            bgOptions.forEach(opt => {
-                // Skip if it's the container for custom (handled separately)
-                if (opt.id === 'bg-custom-container') return;
-
-                opt.addEventListener('click', () => {
-                    bgOptions.forEach(b => b.classList.remove('active'));
-                    opt.classList.add('active');
-                    state.bgType = opt.dataset.bg;
-                    updatePenColorForBg();
-                    drawBackground();
-                });
-            });
-
-            bgColorPicker.addEventListener('input', (e) => {
-                state.customBgColor = e.target.value;
-                state.bgType = 'custom';
-                bgOptions.forEach(b => b.classList.remove('active'));
-                bgCustomContainer.classList.add('active');
-                drawBackground();
-            });
-            bgCustomContainer.addEventListener('click', (e) => {
-                if(e.target !== bgColorPicker) bgColorPicker.click();
-            });
-
-            // 2. Toolbar Theme Logic
-            themeOptions.forEach(opt => {
-                if(opt.id === 'ui-custom-container') return;
-
-                opt.addEventListener('click', () => {
-                    themeOptions.forEach(t => t.classList.remove('active'));
-                    opt.classList.add('active');
-                    applyUITheme(opt.dataset.theme);
-                });
-            });
-
-            uiColorPicker.addEventListener('input', (e) => {
-                themeOptions.forEach(t => t.classList.remove('active'));
-                uiCustomContainer.classList.add('active');
-                applyUITheme('custom', e.target.value);
-            });
-            uiCustomContainer.addEventListener('click', (e) => {
-                if(e.target !== uiColorPicker) uiColorPicker.click();
-            });
-        }
-
-        // --- UI Theme Application ---
-        function applyUITheme(theme, customColor = null) {
-            const root = document.documentElement;
-            let bg, text, activeBg, activeText;
-
-            if (theme === 'light') {
-                bg = '#ffffff';
-                text = '#555555';
-                activeBg = '#e6f0fa';
-                activeText = '#4a90e2';
-            } else if (theme === 'dark') {
-                bg = '#333333';
-                text = '#eeeeee';
-                activeBg = '#555555';
-                activeText = '#ffffff';
-            } else if (theme === 'blue') {
-                bg = '#4a90e2';
-                text = '#ffffff';
-                activeBg = '#357abd';
-                activeText = '#ffffff';
-            } else if (theme === 'custom' && customColor) {
-                bg = customColor;
-                // Calculate contrast for text (simple brightness check)
-                const rgb = hexToRgb(bg);
-                const brightness = Math.round(((parseInt(rgb.r) * 299) + (parseInt(rgb.g) * 587) + (parseInt(rgb.b) * 114)) / 1000);
-                text = (brightness > 125) ? '#333333' : '#ffffff';
-                // Slightly darker or lighter for active state
-                activeBg = (brightness > 125) ? adjustColor(bg, -20) : adjustColor(bg, 20);
-                activeText = text;
-            }
-
-            if(bg) {
-                root.style.setProperty('--toolbar-bg', bg);
-                root.style.setProperty('--toolbar-text', text);
-                root.style.setProperty('--active-tool-bg', activeBg);
-                root.style.setProperty('--active-tool-text', activeText);
-            }
-        }
-
-        function hexToRgb(hex) {
-            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-            return result ? {
-                r: parseInt(result[1], 16),
-                g: parseInt(result[2], 16),
-                b: parseInt(result[3], 16)
-            } : null;
-        }
-
-        function adjustColor(color, amount) {
-            return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
-        }
-
-        // --- Helper: Auto-switch pen color ---
-        function updatePenColorForBg() {
-            const darkBackgrounds = ['black', 'blue'];
-            if (darkBackgrounds.includes(state.bgType)) {
-                if (state.color === '#000000') setColor('#ffffff');
+        // 3. Auth Logic
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('auth-view').style.display = 'none';
+                document.getElementById('dashboard-view').style.display = 'block';
+                document.getElementById('welcome-msg').innerText = `Welcome, ${user.displayName || 'User'}`;
+                initDataListeners(user);
             } else {
-                if (state.color === '#ffffff') setColor('#000000');
+                currentUser = null;
+                document.getElementById('auth-view').style.display = 'flex';
+                document.getElementById('dashboard-view').style.display = 'none';
+                // Reset data
+                accounts = [];
+                transactions = [];
+                document.getElementById('accounts-container').innerHTML = '<div class="card total"><h3>Net Worth</h3><div class="balance" id="bal-total">...</div></div>';
             }
-        }
-
-        // --- Canvas Sizing ---
-        function resizeCanvases() {
-            const width = container.clientWidth;
-            const height = container.clientHeight;
-
-            [bgCanvas, mainCanvas, tempCanvas].forEach(c => {
-                c.width = width;
-                c.height = height;
-            });
-            
-            drawBackground();
-            if (state.history.length > 0 && state.historyStep >= 0) {
-                 const img = new Image();
-                 img.src = state.history[state.historyStep];
-                 img.onload = () => ctxMain.drawImage(img, 0, 0);
-            }
-        }
-
-        // --- Background Logic ---
-        function drawBackground() {
-            const w = bgCanvas.width;
-            const h = bgCanvas.height;
-            ctxBg.clearRect(0, 0, w, h);
-
-            let fill = '#ffffff';
-
-            if (state.bgType === 'white') fill = '#ffffff';
-            else if (state.bgType === 'black') fill = '#2c3e50';
-            else if (state.bgType === 'blue') fill = '#003366'; 
-            else if (state.bgType === 'custom') fill = state.customBgColor;
-            else fill = '#ffffff';
-
-            ctxBg.fillStyle = fill;
-            ctxBg.fillRect(0, 0, w, h);
-
-            if (state.bgType === 'grid') {
-                ctxBg.beginPath();
-                ctxBg.strokeStyle = '#e0e0e0';
-                ctxBg.lineWidth = 1;
-                const gridSize = 40;
-                for (let x = 0; x <= w; x += gridSize) { ctxBg.moveTo(x, 0); ctxBg.lineTo(x, h); }
-                for (let y = 0; y <= h; y += gridSize) { ctxBg.moveTo(0, y); ctxBg.lineTo(w, y); }
-                ctxBg.stroke();
-            }
-            else if (state.bgType === 'ruled') {
-                ctxBg.beginPath();
-                ctxBg.strokeStyle = '#aaccff';
-                ctxBg.lineWidth = 1;
-                const lineHeight = 40;
-                ctxBg.moveTo(60, 0); ctxBg.lineTo(60, h); 
-                ctxBg.stroke();
-                ctxBg.beginPath();
-                for (let y = lineHeight; y <= h; y += lineHeight) { ctxBg.moveTo(0, y); ctxBg.lineTo(w, y); }
-                ctxBg.stroke();
-            }
-        }
-
-        // --- Tools & Colors ---
-        function initColors() {
-            colorPalette.innerHTML = '';
-            colors.forEach(c => {
-                const div = document.createElement('div');
-                div.className = 'color-swatch';
-                div.style.backgroundColor = c;
-                if (c === '#ffffff') div.style.border = '1px solid #ccc';
-                div.addEventListener('click', () => setColor(c));
-                colorPalette.appendChild(div);
-            });
-            setColor(state.color);
-        }
-
-        function setColor(c) {
-            state.color = c;
-            document.querySelectorAll('.color-swatch').forEach(el => {
-                el.classList.toggle('active', el.style.backgroundColor === getComputedStyleColor(c));
-            });
-        }
-        
-        function getComputedStyleColor(hex) {
-            const div = document.createElement('div');
-            div.style.color = hex;
-            document.body.appendChild(div);
-            const col = getComputedStyle(div).color;
-            document.body.removeChild(div);
-            return col;
-        }
-
-        function setTool(toolName) {
-            state.tool = toolName;
-            toolBtns.forEach(b => {
-                b.classList.toggle('active', b.dataset.tool === toolName);
-            });
-            
-            if (toolName === 'text') container.style.cursor = 'text';
-            else if (toolName === 'eraser') container.style.cursor = 'cell';
-            else container.style.cursor = 'crosshair';
-        }
-
-        // --- Drawing Logic (Pointer Events) ---
-
-        function getPos(e) {
-            const rect = container.getBoundingClientRect();
-            return {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top
-            };
-        }
-
-        function startDraw(e) {
-            // Palm Rejection: If drawing with finger is OFF, and input is touch, Ignore.
-            if (!state.touchDrawingEnabled && e.pointerType === 'touch') {
-                return;
-            }
-
-            tempCanvas.setPointerCapture(e.pointerId);
-
-            if (state.tool === 'text') {
-                handleTextTool(e);
-                return;
-            }
-
-            state.isDrawing = true;
-            const pos = getPos(e);
-            state.startX = pos.x;
-            state.startY = pos.y;
-            
-            ctxTemp.lineCap = 'round';
-            ctxTemp.lineJoin = 'round';
-            ctxTemp.lineWidth = state.tool === 'highlighter' ? 15 : state.width;
-            
-            if (state.tool === 'eraser') {
-                ctxTemp.strokeStyle = '#ffffff'; 
-                ctxTemp.lineWidth = state.width * 4;
-            } else if (state.tool === 'highlighter') {
-                ctxTemp.strokeStyle = state.color;
-                ctxTemp.globalAlpha = 0.4;
-            } else if (state.tool === 'laser') {
-                ctxTemp.strokeStyle = 'red';
-                ctxTemp.shadowBlur = 10;
-                ctxTemp.shadowColor = 'red';
-            } else {
-                ctxTemp.strokeStyle = state.color;
-                ctxTemp.globalAlpha = 1.0;
-                ctxTemp.shadowBlur = 0;
-            }
-
-            ctxTemp.beginPath();
-            ctxTemp.moveTo(pos.x, pos.y);
-        }
-
-        function draw(e) {
-            if (!state.isDrawing) return;
-            if (!state.touchDrawingEnabled && e.pointerType === 'touch') return;
-
-            const pos = getPos(e);
-            
-            if (['line', 'rect', 'circle', 'triangle'].includes(state.tool)) {
-                ctxTemp.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-            }
-
-            switch (state.tool) {
-                case 'pen':
-                case 'highlighter':
-                case 'eraser':
-                    if (e.getCoalescedEvents) {
-                        e.getCoalescedEvents().forEach(ce => {
-                             const p = getPos(ce);
-                             ctxTemp.lineTo(p.x, p.y);
-                             ctxTemp.stroke();
-                        });
-                    } else {
-                        ctxTemp.lineTo(pos.x, pos.y);
-                        ctxTemp.stroke();
-                    }
-                    break;
-                
-                case 'laser':
-                    ctxTemp.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-                    ctxTemp.beginPath();
-                    ctxTemp.moveTo(state.startX, state.startY); 
-                    ctxTemp.arc(pos.x, pos.y, 5, 0, Math.PI*2);
-                    ctxTemp.fillStyle = 'red';
-                    ctxTemp.fill();
-                    break;
-
-                case 'line':
-                    ctxTemp.beginPath();
-                    ctxTemp.moveTo(state.startX, state.startY);
-                    ctxTemp.lineTo(pos.x, pos.y);
-                    ctxTemp.stroke();
-                    break;
-
-                case 'rect':
-                    const w = pos.x - state.startX;
-                    const h = pos.y - state.startY;
-                    ctxTemp.strokeRect(state.startX, state.startY, w, h);
-                    break;
-
-                case 'circle':
-                    ctxTemp.beginPath();
-                    const radius = Math.sqrt(Math.pow(pos.x - state.startX, 2) + Math.pow(pos.y - state.startY, 2));
-                    ctxTemp.arc(state.startX, state.startY, radius, 0, 2 * Math.PI);
-                    ctxTemp.stroke();
-                    break;
-                    
-                case 'triangle':
-                    ctxTemp.beginPath();
-                    ctxTemp.moveTo(state.startX, state.startY + (pos.y - state.startY)); 
-                    ctxTemp.lineTo(state.startX + (pos.x - state.startX) / 2, state.startY); 
-                    ctxTemp.lineTo(pos.x, pos.y); 
-                    ctxTemp.closePath();
-                    ctxTemp.stroke();
-                    break;
-            }
-        }
-
-        function stopDraw(e) {
-            if (!state.isDrawing) return;
-            
-            state.isDrawing = false;
-            
-            if(tempCanvas.hasPointerCapture(e.pointerId)) {
-                tempCanvas.releasePointerCapture(e.pointerId);
-            }
-
-            if (state.tool === 'laser') {
-                ctxTemp.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-                return;
-            }
-
-            if (state.tool === 'eraser') {
-                ctxMain.globalCompositeOperation = 'destination-out';
-                ctxMain.drawImage(tempCanvas, 0, 0);
-                ctxMain.globalCompositeOperation = 'source-over';
-            } else if (state.tool === 'highlighter') {
-                ctxMain.globalAlpha = 0.4;
-                ctxMain.drawImage(tempCanvas, 0, 0);
-                ctxMain.globalAlpha = 1.0;
-            } else {
-                ctxMain.drawImage(tempCanvas, 0, 0);
-            }
-
-            ctxTemp.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-            ctxTemp.globalAlpha = 1.0;
-            ctxTemp.shadowBlur = 0;
-
-            saveState();
-        }
-
-        // --- Text Tool ---
-        const textBox = document.getElementById('text-input-box');
-        const textInput = textBox.querySelector('textarea');
-        const textBtn = document.getElementById('text-finish-btn');
-        let textPos = {x: 0, y: 0};
-
-        function handleTextTool(e) {
-            const pos = getPos(e);
-            textPos = pos;
-            
-            textBox.style.display = 'block';
-            textBox.style.left = (pos.x) + 'px';
-            textBox.style.top = (pos.y) + 'px';
-            textInput.value = '';
-            textInput.style.color = state.color;
-            textInput.style.font = "20px 'Segoe UI', sans-serif";
-            textInput.focus();
-            
-            state.isDrawing = false;
-        }
-
-        textBtn.addEventListener('click', () => {
-            if (textInput.value.trim() !== '') {
-                ctxMain.font = "20px 'Segoe UI', sans-serif";
-                ctxMain.fillStyle = state.color;
-                ctxMain.textBaseline = 'top';
-                
-                const lines = textInput.value.split('\n');
-                const lineHeight = 25;
-                lines.forEach((line, i) => {
-                    ctxMain.fillText(line, textPos.x, textPos.y + (i * lineHeight));
-                });
-                
-                saveState();
-            }
-            textBox.style.display = 'none';
         });
 
-        // --- Undo/Redo/History ---
-        function saveState() {
-            if (state.historyStep < state.history.length - 1) {
-                state.history = state.history.slice(0, state.historyStep + 1);
-            }
-            state.history.push(mainCanvas.toDataURL());
-            if (state.history.length > state.maxHistory) {
-                state.history.shift();
-            } else {
-                state.historyStep++;
-            }
+        window.handleLogin = async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+            } catch (err) { alert("Login failed: " + err.message); }
+        };
+
+        window.handleRegister = async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('reg-name').value;
+            const email = document.getElementById('reg-email').value;
+            const pass = document.getElementById('reg-password').value;
+            try {
+                const cred = await createUserWithEmailAndPassword(auth, email, pass);
+                await updateProfile(cred.user, { displayName: name });
+                // Create default accounts for new user
+                await createDefaultAccounts(cred.user.uid);
+            } catch (err) { alert("Registration failed: " + err.message); }
+        };
+
+        window.handleLogout = () => signOut(auth);
+        window.toggleAuth = (view) => {
+            document.getElementById('login-form').classList.toggle('hidden', view === 'register');
+            document.getElementById('register-form').classList.toggle('hidden', view === 'login');
+        };
+
+        // 4. Data Management
+        async function createDefaultAccounts(uid) {
+            const userPath = `artifacts/${appId}/users/${uid}/accounts`;
+            await addDoc(collection(db, userPath), { name: "Cash", balance: 0, color: "linear-gradient(135deg, #11998e, #38ef7d)", type: "cash" });
+            await addDoc(collection(db, userPath), { name: "Bank Account", balance: 0, color: "linear-gradient(135deg, #1FA2FF, #12D8FA)", type: "bank" });
         }
 
-        function undo() {
-            if (state.historyStep > 0) {
-                state.historyStep--;
-                restoreState();
-            } else if (state.historyStep === 0) {
-                state.historyStep = -1;
-                ctxMain.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+        function initDataListeners(user) {
+            const userPath = `artifacts/${appId}/users/${user.uid}`;
+            
+            // Listen to Accounts
+            onSnapshot(collection(db, userPath, 'accounts'), (snap) => {
+                accounts = [];
+                snap.forEach(doc => accounts.push({ id: doc.id, ...doc.data() }));
+                renderAccounts();
+            });
+
+            // Listen to Transactions
+            onSnapshot(collection(db, userPath, 'transactions'), (snap) => {
+                transactions = [];
+                snap.forEach(doc => transactions.push({ id: doc.id, ...doc.data() }));
+                transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+                renderTransactions();
+                renderCharts();
+                updateTotalNetWorth();
+            });
+        }
+
+        // 5. Account Operations
+        window.createAccount = async (e) => {
+            e.preventDefault();
+            if (!currentUser) return;
+            const name = document.getElementById('new-acc-name').value;
+            const balance = parseFloat(document.getElementById('new-acc-balance').value);
+            const color = document.getElementById('new-acc-color').value;
+
+            try {
+                await addDoc(collection(db, `artifacts/${appId}/users/${currentUser.uid}/accounts`), {
+                    name, balance, color
+                });
+                closeModal('account-modal');
+                e.target.reset();
+            } catch (err) { alert("Error: " + err.message); }
+        };
+
+        function renderAccounts() {
+            const container = document.getElementById('accounts-container');
+            const select = document.getElementById('account-select');
+            
+            // Save total card to append later
+            const totalHTML = `<div class="card total"><h3>Total Net Worth</h3><div class="balance" id="bal-total">...</div></div>`;
+            
+            let cardsHTML = '';
+            let optionsHTML = '<option value="" disabled selected>Select Account</option>';
+
+            accounts.forEach(acc => {
+                // Calculate current balance based on transactions
+                const currentBal = calculateAccountBalance(acc);
+                
+                cardsHTML += `
+                    <div class="card" style="background: ${acc.color}; color: white;">
+                        <div style="display:flex; justify-content:space-between;">
+                            <h3>${acc.name}</h3>
+                            <i class="fas fa-trash" style="font-size:0.7rem; cursor:pointer; opacity:0.6;" onclick="deleteAccount('${acc.id}')"></i>
+                        </div>
+                        <div class="balance">${formatMoney(currentBal)}</div>
+                    </div>
+                `;
+                optionsHTML += `<option value="${acc.id}">${acc.name}</option>`;
+            });
+
+            container.innerHTML = cardsHTML + totalHTML;
+            select.innerHTML = optionsHTML;
+            updateTotalNetWorth();
+        }
+
+        function calculateAccountBalance(account) {
+            let bal = account.balance || 0; // Opening balance
+            transactions.forEach(t => {
+                if (t.accountId === account.id) {
+                    bal += t.amount;
+                }
+            });
+            return bal;
+        }
+
+        function updateTotalNetWorth() {
+            let total = 0;
+            accounts.forEach(acc => total += calculateAccountBalance(acc));
+            const el = document.getElementById('bal-total');
+            if(el) el.innerText = formatMoney(total);
+        }
+
+        window.deleteAccount = async (id) => {
+            if(confirm("Delete this account? Transactions linked to it will remain but won't be calculated.")){
+                await deleteDoc(doc(db, `artifacts/${appId}/users/${currentUser.uid}/accounts`, id));
             }
-        }
+        };
 
-        function redo() {
-            if (state.historyStep < state.history.length - 1) {
-                state.historyStep++;
-                restoreState();
+        // 6. Transaction Operations
+        document.getElementById('trans-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUser) return;
+            
+            const desc = document.getElementById('desc').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const type = document.getElementById('type').value;
+            const accountId = document.getElementById('account-select').value;
+            const date = document.getElementById('date').value;
+
+            if(!accountId) return alert("Please select an account");
+
+            const finalAmount = type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
+
+            try {
+                await addDoc(collection(db, `artifacts/${appId}/users/${currentUser.uid}/transactions`), {
+                    desc, amount: finalAmount, accountId, date, createdAt: Date.now()
+                });
+                document.getElementById('desc').value = '';
+                document.getElementById('amount').value = '';
+            } catch (err) { alert(err.message); }
+        });
+
+        window.deleteTransaction = async (id) => {
+            if(confirm("Delete transaction?")) {
+                await deleteDoc(doc(db, `artifacts/${appId}/users/${currentUser.uid}/transactions`, id));
             }
-        }
+        };
 
-        function restoreState() {
-            ctxMain.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
-            const img = new Image();
-            img.src = state.history[state.historyStep];
-            img.onload = () => {
-                ctxMain.drawImage(img, 0, 0);
-            };
-        }
-
-        function clearBoard() {
-            if(confirm('Are you sure you want to clear the entire board?')) {
-                ctxMain.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
-                saveState();
+        function renderTransactions() {
+            const list = document.getElementById('trans-list');
+            if (transactions.length === 0) {
+                list.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa">No transactions yet</div>';
+                return;
             }
+            
+            list.innerHTML = transactions.map(t => {
+                // Find account name
+                const acc = accounts.find(a => a.id === t.accountId);
+                const accName = acc ? acc.name : 'Unknown Account';
+                
+                return `
+                <div class="transaction-item ${t.amount > 0 ? 'inc' : 'exp'}">
+                    <div class="t-left">
+                        <span class="t-desc">${t.desc}</span>
+                        <span class="t-meta">${t.date} • ${accName}</span>
+                    </div>
+                    <div class="t-right" style="flex:1;">
+                        <span class="t-amt" style="color: ${t.amount > 0 ? 'var(--income)' : 'var(--expense)'}">
+                            ${t.amount > 0 ? '+' : ''}${formatMoney(t.amount)}
+                        </span>
+                        <div style="text-align:right">
+                             <button class="t-del" onclick="deleteTransaction('${t.id}')">Delete</button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
         }
 
-        // --- Image Import ---
-        function handleImageUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+        // 7. Charts
+        function renderCharts() {
+            const activeBtn = document.querySelector('.chart-btn.active');
+            const viewType = activeBtn ? activeBtn.id.split('-')[1] : 'month';
+            window.updateChart(viewType);
+        }
 
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const img = new Image();
-                img.onload = function() {
-                    let w = img.width;
-                    let h = img.height;
-                    const maxW = mainCanvas.width * 0.8;
-                    const maxH = mainCanvas.height * 0.8;
+        window.updateChart = (viewType) => {
+            document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${viewType}`).classList.add('active');
 
-                    if (w > maxW || h > maxH) {
-                        const ratio = Math.min(maxW / w, maxH / h);
-                        w *= ratio;
-                        h *= ratio;
+            const groups = {};
+            let pInc = 0, pExp = 0;
+
+            transactions.forEach(t => {
+                let key = t.date; // Default Day
+                if (viewType === 'month') key = t.date.substring(0, 7);
+                if (viewType === 'year') key = t.date.substring(0, 4);
+
+                if (!groups[key]) groups[key] = { inc: 0, exp: 0 };
+                if (t.amount > 0) { groups[key].inc += t.amount; pInc += t.amount; }
+                else { groups[key].exp += Math.abs(t.amount); pExp += Math.abs(t.amount); }
+            });
+
+            const keys = Object.keys(groups).sort();
+            const displayKeys = (viewType === 'day' && keys.length > 7) ? keys.slice(keys.length - 7) : keys;
+            
+            const dInc = displayKeys.map(k => groups[k].inc);
+            const dExp = displayKeys.map(k => groups[k].exp);
+
+            // Update Text Stats
+            document.getElementById('stat-inc').innerText = formatMoney(pInc);
+            document.getElementById('stat-exp').innerText = formatMoney(pExp);
+            const net = pInc - pExp;
+            const netEl = document.getElementById('stat-net');
+            netEl.innerText = (net >= 0 ? '+' : '') + formatMoney(net);
+            netEl.style.color = net >= 0 ? 'var(--income)' : 'var(--expense)';
+
+            const ctx = document.getElementById('financeChart').getContext('2d');
+            if (myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: displayKeys,
+                    datasets: [
+                        { label: 'Income', data: dInc, backgroundColor: '#00fa9a', borderRadius: 4 },
+                        { label: 'Expense', data: dExp, backgroundColor: '#ff416c', borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#fff' } } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#aaa' } },
+                        x: { grid: { display: false }, ticks: { color: '#aaa' } }
                     }
-
-                    const x = (mainCanvas.width - w) / 2;
-                    const y = (mainCanvas.height - h) / 2;
-
-                    ctxMain.drawImage(img, x, y, w, h);
-                    saveState();
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-            e.target.value = '';
+                }
+            });
         }
 
-        // --- Export ---
-        function downloadBoard() {
-            const exportCanvas = document.createElement('canvas');
-            exportCanvas.width = mainCanvas.width;
-            exportCanvas.height = mainCanvas.height;
-            const exCtx = exportCanvas.getContext('2d');
-            exCtx.drawImage(bgCanvas, 0, 0);
-            exCtx.drawImage(mainCanvas, 0, 0);
-
-            const link = document.createElement('a');
-            link.download = `whiteboard_session_${new Date().toISOString().slice(0,10)}.png`;
-            link.href = exportCanvas.toDataURL();
-            link.click();
-        }
-
-        // Run
-        init();
+        // 8. Utilities
+        function formatMoney(num) { return '₹' + (num || 0).toLocaleString('en-IN'); }
+        window.openModal = (id) => { document.getElementById(id).style.display = 'flex'; }
+        window.closeModal = (id) => { document.getElementById(id).style.display = 'none'; }
+        document.getElementById('date').valueAsDate = new Date();
 
     </script>
 </body>
